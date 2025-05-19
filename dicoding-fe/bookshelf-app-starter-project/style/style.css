@@ -1,0 +1,224 @@
+body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #F2F2F2;
+    margin: 0;
+    border: 10px;
+    color: #000000;
+    font-family: sans-serif;
+
+}
+
+header {
+    display: flex;
+    background-color: #EAE4D5;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    box-shadow: 0 1px 6px #494949;
+
+}
+
+
+main {
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    width: 80%;
+}
+
+
+button {
+    align-self: stretch;
+    width: 100%;
+    border: none;
+    background-color: #B6B09F;
+    color: #000000;
+    padding: 0.5rem;
+    border-radius: 10px;
+    transition: background-color 0.5s, color 0.5s, box-shadow 0.5s;
+}
+
+button:hover {
+    background-color: #000000;
+    color: #FFFFFF;
+    box-shadow: 0px 0px 7px #313131;
+
+}
+
+#bookFormTitle {
+    width: 100%;
+    color: #000000;
+    border: none;
+    margin-top: 0.5rem;
+    margin-bottom: 0.8rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    border-radius: 5px;
+
+}
+
+#bookFormAuthor {
+    width: 100%;
+    color: #000000;
+    border: none;
+    margin-top: 0.5rem;
+    margin-bottom: 0.8rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    border-radius: 5px;
+
+}
+
+#bookFormYear {
+    width: 100%;
+    color: #000000;
+    border: none;
+    margin-top: 0.5rem;
+    margin-bottom: 0.8rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    border-radius: 5px;
+
+}
+
+#bookFormIsComplete {
+    border: none;
+}
+
+
+#sectionBookFormIsComplete {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    margin-top: 1rem;
+}
+
+#sectionAddBookForm {
+    border: 1px solid #000000;
+    padding: 2rem;
+    color: #000000;
+    width: 100%;
+    border-radius: 10px;
+}
+
+#sectionSearchBook {
+    border: 1px solid #000000;
+    padding: 2rem;
+    color: #000000;
+    width: 100%;
+    border-radius: 10px;
+    margin-top: 1rem;
+
+}
+
+
+#searchBookTitle {
+    width: 100%;
+    color: #000000;
+    border: none;
+    margin-top: 0.5rem;
+    margin-bottom: 0.8rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    border-radius: 5px;
+
+}
+
+
+#sectionOngoingBooks {
+    border: 1px solid #000000;
+    padding: 2rem;
+    color: #000000;
+    width: 100%;
+    border-radius: 10px;
+    margin-top: 1rem;
+
+}
+
+
+
+#sectionCompletedBooks {
+    border: 1px solid #000000;
+    padding: 2rem;
+    color: #000000;
+    width: 100%;
+    border-radius: 10px;
+    margin-top: 1rem;
+
+}
+
+
+#buttonBook {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+}
+
+
+#buttonEditBook {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+}
+
+
+#editInputTitleBook {
+    width: 100%;
+    color: #000000;
+    border: none;
+    margin-top: 0.5rem;
+    margin-bottom: 0.8rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    border-radius: 5px;
+
+}
+
+
+#editInputAuthorBook {
+    width: 100%;
+    color: #000000;
+    border: none;
+    margin-top: 0.5rem;
+    margin-bottom: 0.8rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    border-radius: 5px;
+
+}
+
+#editInputYearBook {
+    width: 100%;
+    color: #000000;
+    border: none;
+    margin-top: 0.5rem;
+    margin-bottom: 0.8rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    border-radius: 5px;
+
+}
+
+#buttonEditCancel {
+    background-color: #DA6C6C;
+}
+
+#buttonEditSubmit {
+    background-color: #129990;
+}
+
+#buttonCompleteBook {
+    background-color: #129990;
+}
+
+#buttonDeleteBook {
+    background-color: #DA6C6C;
+}
