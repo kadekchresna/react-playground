@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{
+  --bg-page:#F7FAFB;
+  --bg-surface:#FFFFFF;
+  --text:#111827;
+  --text-muted:#4B5563;
+
+  --brand:#12B8B0;
+  --brand-hover:#0EA5A0;
+  --brand-active:#0B827E;
+
+  --accent:#F26D5B;
+  --accent-hover:#E25946;
+  --accent-active:#C74635;
+
+  --sand-50:#F9F5EE;
+  --sand-100:#F3EAD8;
+
+  --ring-brand:#74E3D8;
+}
+
+.dark{
+  --bg-page:#0E151B;
+  --bg-surface:#121A22;
+  --text:#E5E7EB;
+  --text-muted:#B8C2CC;
+
+  --brand:#42D3C8;
+  --brand-hover:#74E3D8;
+  --brand-active:#A5F0E8;
+
+  --accent:#F97C68;
+  --accent-hover:#FF927E;
+  --accent-active:#FFB7A9;
+
+  --sand-50:#10171D;
+  --sand-100:#16212A;
+}
+
+html { scroll-behavior: smooth; }
+body { background: var(--bg-page); color: var(--text); }
+
+.container { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8; }
+.section { @apply py-12 sm:py-16 lg:py-24; }
+
+.card { background: var(--bg-surface); @apply rounded-2xl shadow-card overflow-hidden; }
+.card-body { @apply p-5; }
+
+.h1 { @apply text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight; }
+.h2 { @apply text-2xl sm:text-3xl lg:text-4xl font-bold; }
+.muted { color: var(--text-muted); }
+
+.btn { @apply inline-flex items-center justify-center rounded-xl px-5 py-3 font-semibold transition shadow-md; }
+.btn-primary { background: var(--brand); color:#fff; }
+.btn-primary:hover { background: var(--brand-hover); }
+.btn-primary:active { background: var(--brand-active); }
+.btn-primary:focus { outline: none; box-shadow: 0 0 0 3px var(--ring-brand); }
+
+.btn-outline { @apply border; border-color: var(--brand); color: var(--brand); }
+.btn-outline:hover { background: color-mix(in srgb, var(--brand) 10%, #ffffff); }
+
+.btn-accent { background: var(--accent); color:#fff; }
+.btn-accent:hover { background: var(--accent-hover); }
+.btn-accent:active { background: var(--accent-active); }

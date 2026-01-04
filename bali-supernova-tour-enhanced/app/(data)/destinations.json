@@ -1,0 +1,38 @@
+[
+  {
+    "slug": "ubud-rice-terraces",
+    "name": "Ubud Rice Terraces",
+    "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=80",
+    "teaser": "Lush green terraces, cultural bliss, tranquil village life."
+  },
+  {
+    "slug": "uluwatu-cliff-sunset",
+    "name": "Uluwatu Cliff & Sunset",
+    "image": "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1600&q=80",
+    "teaser": "Dramatic cliffs, stunning ocean views, legendary Kecak dance."
+  },
+  {
+    "slug": "nusa-penida-kelingking",
+    "name": "Nusa Penida",
+    "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80",
+    "teaser": "Iconic T-Rex cliffs, turquoise water, island adventure."
+  },
+  {
+    "slug": "mount-batur-sunrise",
+    "name": "Mount Batur Sunrise",
+    "image": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=80",
+    "teaser": "Sunrise trek with unforgettable volcanic sunrise views."
+  },
+  {
+    "slug": "tanah-lot-temple",
+    "name": "Tanah Lot Temple",
+    "image": "https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=1600&q=80",
+    "teaser": "Sea temple, spiritual atmosphere, golden hour magic."
+  },
+  {
+    "slug": "gitgit-waterfall",
+    "name": "Tegunungan Waterfall",
+    "image": "https://images.unsplash.com/photo-1549880338-65ddcdfd017b?auto=format&fit=crop&w=1600&q=80",
+    "teaser": "Refreshing jungle waterfall escape in lush nature."
+  }
+]

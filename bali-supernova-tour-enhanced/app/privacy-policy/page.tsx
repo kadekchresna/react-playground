@@ -1,0 +1,1 @@
+export default function Page(){return (<div className='section container'><h1 className='h2'>Privacy Policy</h1><p className='mt-2'>We respect your privacy and only use your data to operate our services.</p></div>)}

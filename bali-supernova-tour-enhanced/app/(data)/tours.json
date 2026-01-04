@@ -1,0 +1,41 @@
+[
+  {
+    "slug": "sunrise-rice-terrace",
+    "title": "Sunrise & Rice Terrace Explorer",
+    "priceFrom": 450000,
+    "duration": "6\u20137 hours",
+    "badge": "Best seller",
+    "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=80",
+    "highlights": [
+      "Volcano viewpoint",
+      "Tegallalang rice terraces",
+      "Coffee tasting"
+    ]
+  },
+  {
+    "slug": "uluwatu-sunset-kecak",
+    "title": "Uluwatu Sunset & Kecak Dance",
+    "priceFrom": 550000,
+    "duration": "5\u20136 hours",
+    "badge": "Popular",
+    "image": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=80",
+    "highlights": [
+      "Uluwatu Temple cliffs",
+      "Kecak fire dance",
+      "Jimbaran dinner (optional)"
+    ]
+  },
+  {
+    "slug": "north-bali-adventure",
+    "title": "3-Day North Bali Adventure",
+    "priceFrom": 2250000,
+    "duration": "3 days",
+    "badge": "New",
+    "image": "https://images.unsplash.com/photo-1549880338-65ddcdfd017b?auto=format&fit=crop&w=1600&q=80",
+    "highlights": [
+      "Waterfalls",
+      "Hot springs",
+      "Lovina dolphin watching"
+    ]
+  }
+]
