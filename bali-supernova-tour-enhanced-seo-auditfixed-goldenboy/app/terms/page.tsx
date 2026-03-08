@@ -1,0 +1,1 @@
+export default function Page(){return (<div className='section container'><h1 className='h2'>Terms & Conditions</h1><p className='mt-2'>Standard terms of service and cancellation rules apply.</p></div>)}

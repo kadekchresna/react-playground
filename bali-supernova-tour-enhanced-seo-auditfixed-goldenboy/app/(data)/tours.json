@@ -1,0 +1,86 @@
+[
+  {
+    "slug": "package-1-atv-rafting-telaga-singha",
+    "title": "Package 1 \u2014 ATV Quad Bike + Rafting + Telaga Singha",
+    "priceFrom": 0,
+    "duration": "Full day (approx. 8\u201310 hours)",
+    "badge": "Adventure combo",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/5/5b/ATV_bike.jpg",
+    "highlights": [
+      "ATV quad bike adventure",
+      "Water rafting / river tubing",
+      "Coffee plantation visit",
+      "Infinity pool & bar at Telaga Singha",
+      "Includes: private English-speaking driver, petrol & parking, cold water with ice box, lunch, locker & shower, activity equipment, instructor, insurance, hotel transfer",
+      "Excludes: entrance/activity fees"
+    ]
+  },
+  {
+    "slug": "package-2-ubud-waterfall-monkey-forest",
+    "title": "Package 2 \u2014 Ubud Highlights Day Tour",
+    "priceFrom": 0,
+    "duration": "Full day (approx. 8\u201310 hours)",
+    "badge": "Ubud classic",
+    "image": "https://images.unsplash.com/photo-1558005530-a7958896ec60?auto=format&fit=crop&w=1600&q=80",
+    "highlights": [
+      "Tegenungan Waterfall",
+      "Ubud Monkey Forest",
+      "Ubud Market",
+      "Coffee plantation",
+      "Tegallalang rice terrace & Bali swing",
+      "Includes: private English-speaking driver, petrol & parking, cold water with ice box, photo & video help, hotel transfer",
+      "Excludes: entrance/activity fees"
+    ]
+  },
+  {
+    "slug": "package-3-uluwatu-gwk-jimbaran",
+    "title": "Package 3 \u2014 South Bali: GWK + Uluwatu + Kecak + Jimbaran",
+    "priceFrom": 0,
+    "duration": "Full day (approx. 10\u201312 hours)",
+    "badge": "Sunset & culture",
+    "image": "https://prod--bali-goldenboy-tour.s3.us-east-1.amazonaws.com/images/gwk.png",
+    "highlights": [
+      "Tanjung Benoa watersport",
+      "GWK (Garuda Wisnu Kencana)",
+      "Karang Boma cliff viewpoint",
+      "Uluwatu Temple",
+      "Fire Kecak dance",
+      "Jimbaran seafood dinner",
+      "Includes: private English-speaking driver, petrol & parking, cold water with ice box, photo & video help, hotel transfer",
+      "Excludes: entrance/activity fees"
+    ]
+  },
+  {
+    "slug": "package-4-lempuyang-tirta-gangga-blue-lagoon",
+    "title": "Package 4 \u2014 East Bali: Lempuyang + Tirta Gangga + Blue Lagoon Snorkeling",
+    "priceFrom": 0,
+    "duration": "Full day (approx. 10\u201312 hours)",
+    "badge": "Iconic photo spots",
+    "image": "https://prod--bali-goldenboy-tour.s3.us-east-1.amazonaws.com/images/blue_lagoon_goldenboy_tour.png",
+    "highlights": [
+      "Heaven Gate of Lempuyang Temple",
+      "Maha Gangga Valley",
+      "Tirta Gangga water palace",
+      "Blue Lagoon snorkeling",
+      "Bella Vista Monkey Bar",
+      "Includes: private English-speaking driver, petrol & parking, cold water with ice box, snorkeling equipment, hotel transfer",
+      "Excludes: entrance/activity fees"
+    ]
+  },
+  {
+    "slug": "package-5-bali-zoo-silver-jewelry-tegalalang",
+    "title": "Package 5 \u2014 Bali Zoo + Silver Jewelry + Tegalalang",
+    "priceFrom": 0,
+    "duration": "Full day (approx. 8\u201310 hours)",
+    "badge": "Family friendly",
+    "image": "https://prod--bali-goldenboy-tour.s3.us-east-1.amazonaws.com/images/bali-zoo.png",
+    "highlights": [
+      "Bali Zoo experience",
+      "Silver class jewelry workshop",
+      "Coffee plantation",
+      "Tegalalang rice terrace & Bali swing",
+      "Includes: private English-speaking driver, petrol & parking, cold water with ice box, photo & video help, hotel transfer",
+      "Excludes: entrance/activity fees"
+    ]
+  }
+]

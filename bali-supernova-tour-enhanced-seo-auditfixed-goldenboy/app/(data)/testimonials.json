@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Mira Tan",
+    "country": "Singapore",
+    "quote": "Loved the small-group vibe. Everything was perfectly planned.",
+    "avatar": "https://randomuser.me/api/portraits/women/68.jpg",
+    "rating": 5
+  },
+  {
+    "name": "Carlos M",
+    "country": "Spain",
+    "quote": "Beautiful landscapes and smooth logistics. Highly recommended!",
+    "avatar": "https://randomuser.me/api/portraits/men/32.jpg",
+    "rating": 5
+  },
+  {
+    "name": "Ayu",
+    "country": "Indonesia",
+    "quote": "Our guide was friendly and knowledgeable. Great value!",
+    "avatar": "https://randomuser.me/api/portraits/women/12.jpg",
+    "rating": 4
+  }
+]

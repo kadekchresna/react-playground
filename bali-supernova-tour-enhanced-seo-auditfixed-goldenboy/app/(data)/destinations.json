@@ -1,0 +1,38 @@
+[
+  {
+    "slug": "bali-airport-transfer",
+    "name": "Bali Airport Transfer",
+    "image": "https://prod--bali-goldenboy-tour.s3.us-east-1.amazonaws.com/images/air-port.jpeg",
+    "teaser": "Airport pickup & drop-off with private driver. Cars 2\u20137 seaters, vans 10\u201314."
+  },
+  {
+    "slug": "ubud-day-tour",
+    "name": "Ubud Day Tour",
+    "image": "https://images.unsplash.com/photo-1558005530-a7958896ec60?auto=format&fit=crop&w=1600&q=80",
+    "teaser": "Tegenungan Waterfall, Monkey Forest, Ubud Market, Tegallalang & Bali Swing."
+  },
+  {
+    "slug": "south-bali-uluwatu",
+    "name": "South Bali (Uluwatu)",
+    "image": "https://prod--bali-goldenboy-tour.s3.us-east-1.amazonaws.com/images/uluwatu.png",
+    "teaser": "GWK, Karang Boma cliff, Uluwatu Temple, Kecak dance & Jimbaran seafood."
+  },
+  {
+    "slug": "east-bali-lempuyang",
+    "name": "East Bali (Lempuyang)",
+    "image": "https://prod--bali-goldenboy-tour.s3.us-east-1.amazonaws.com/images/lempuyang.png",
+    "teaser": "Heaven Gate of Lempuyang, Tirta Gangga, Blue Lagoon snorkeling, scenic valleys."
+  },
+  {
+    "slug": "nusa-penida-package",
+    "name": "Nusa Penida Package",
+    "image": "https://prod--bali-goldenboy-tour.s3.us-east-1.amazonaws.com/images/nusa-penida-klingking.jpg",
+    "teaser": "Island day trip options with photo spots, beaches, and cliff viewpoints."
+  },
+  {
+    "slug": "fast-boat-gili",
+    "name": "Fast Boat to Gili & Nusa Penida",
+    "image": "https://prod--bali-goldenboy-tour.s3.us-east-1.amazonaws.com/images/fast-boat-gili.png",
+    "teaser": "Fast boat tickets to Gili & Nusa Penida \u2014 easy planning, smooth travel."
+  }
+]
