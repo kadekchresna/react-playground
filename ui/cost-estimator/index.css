@@ -1,0 +1,315 @@
+body {
+    background-color: rgb(233, 223, 255);
+    font-family: 'Open Sans', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    /* height: 100vh; */
+    /* width: 100vw; */
+    color: rgb(44, 44, 44);
+    padding: 32px;
+
+}
+
+h1 {
+    color: rgb(83, 49, 156);
+    margin: 32px 0 64px 0;
+}
+
+.container {
+    background-color: white;
+    max-width: 900px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 20px;
+    padding: 0 64px 64px 64px;
+    position: relative;
+
+}
+
+.tabs {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+    padding: 14px 0px;
+    /* border-bottom: 2px solid rgb(208, 207, 207); */
+    margin-bottom: 38px;
+
+
+}
+
+.line {
+    display: flex;
+    width: 100%;
+    height: 2px;
+    border-bottom: 2px solid rgb(250, 247, 255);
+    position: absolute;
+    top: 79px;
+
+}
+
+.tabs p {
+    text-transform: capitalize;
+    font-weight: bold;
+    color: rgb(200, 175, 255);
+    text-transform: uppercase;
+    font-weight: bold;
+    position: relative;
+}
+
+
+.tabs p:hover {
+    color: rgb(83, 49, 156);
+    cursor: pointer;
+}
+
+.tabs .active {
+    color: rgb(83, 49, 156);
+}
+
+
+.tabs .active::after {
+    background-color: rgb(83, 49, 156);
+    content: "";
+    position: absolute;
+    right: -50%;
+    top: 50px;
+    height: 4px;
+    width: 200%;
+    border-radius: 4px;
+    z-index: 2;
+}
+
+
+
+.mode {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+.mode img {
+    width: 5%;
+    height: 5%;
+    margin: 0 16px;
+}
+
+.platform {
+    display: flex;
+    flex-direction: row;
+    background-color: rgb(83, 49, 156);
+    border-radius: 20px;
+    justify-content: space-between;
+    align-items: center;
+    width: 140px;
+    height: 32px;
+    text-transform: uppercase;
+    padding: 2px 4px 2px 16px;
+    font-weight: bold;
+}
+
+
+.platform p:first-of-type {
+    color: white;
+}
+
+
+.platform p:last-of-type {
+    background-color: white;
+    color: rgb(83, 49, 156);
+    border-radius: 20px;
+    padding: 4px 16px;
+}
+
+.monthly {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin: 16px 0;
+    background-color: rgb(250, 247, 255);
+    width: 50%;
+    text-align: center;
+    text-transform: uppercase;
+    padding: 32px;
+    border-radius: 10px;
+}
+
+.monthly p:first-of-type {
+    font-size: small;
+    font-weight: bold;
+}
+
+.monthly p:last-of-type {
+    font-size: 54px;
+    font-weight: bold;
+    margin: 0;
+    color: rgb(83, 49, 156);
+}
+
+
+.description {
+    margin: 16px 0 32px 0;
+    line-height: 32px;
+}
+
+.slider {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    position: relative;
+    flex-direction: column;
+    margin: 0 0 16px 0;
+
+}
+
+.slider .bar {
+    border: 1px solid rgb(210, 210, 210);
+    background-color: rgb(250, 247, 255);
+    border-radius: 16px;
+    width: 100%;
+    height: 16px;
+
+}
+
+.slider .progress {
+    width: 30%;
+    height: 18px;
+    border-top-left-radius: 20px;
+    border-bottom-left-radius: 20px;
+    background: linear-gradient(90deg,
+            rgba(2, 0, 36, 1) 0%,
+            rgba(53, 10, 74, 1) 36%,
+            rgba(83, 49, 156, 1) 100%);
+    position: absolute;
+    top: 0;
+    left: 0;
+
+}
+
+
+.slider .point {
+    position: absolute;
+    top: -6px;
+    left: 28%;
+    background: linear-gradient(90deg,
+            rgba(2, 0, 36, 1) 0%,
+            rgba(53, 10, 74, 1) 36%,
+            rgba(83, 49, 156, 1) 100%);
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    border: 2px solid white;
+}
+
+
+.slider .scale {
+    width: 100%;
+}
+
+
+.slider .scale ul{
+    list-style: none;
+    display: flex;
+    justify-content: space-evenly;
+    flex-direction: row;
+    padding: 0;
+    font-weight: bold;
+    color: rgb(166, 166, 166);
+
+}
+
+.card-wrapper {
+
+    display: flex;
+}
+
+.card {
+    background-color: rgb(250, 247, 255);
+    margin: 16px;
+    padding: 16px 32px;
+    border-radius: 20px;
+    box-shadow: 0px 3px 11px 1px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 45%;
+    position: relative;
+    transition: 0.15s transform ease;
+}
+
+.card .top-section {
+    color: rgb(83, 49, 156);
+    text-transform: uppercase;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+.card .price {
+    font-size: 38px;
+    color: rgb(44, 44, 44);
+    margin: 0;
+}
+
+.card hr {
+    width: 30%;
+    border: 1px solid rgb(210, 210, 210);
+    border-radius: 2px;
+}
+
+.card p {
+    color: rgb(83, 49, 156);
+    font-weight: bold;
+    margin: 8px 0;
+}
+
+
+.card button {
+    padding: 16px;
+    background-color: rgb(83, 49, 156);
+    color: white;
+    border-radius: 10px;
+    border: none;
+    font-weight: bold;
+    margin: 8px 0;
+    transition: 0.15s transform ease;
+}
+
+.card .save {
+    position: absolute;
+    top: -24px;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(90deg,
+            rgba(2, 0, 36, 1) 0%,
+            rgba(53, 10, 74, 1) 36%,
+            rgba(83, 49, 156, 1) 100%);
+    text-align: center;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
+
+.card .save p {
+    color: white;
+}
+
+.card button:hover {
+    cursor: pointer;
+    transform: scale(1.05);
+}
+
+.card:hover {
+    transform: translateY(-8px);
+}
