@@ -70,6 +70,7 @@ This is a greenfield repository: there is no prior code, so `extension-modify` i
 **Why it matters:** decides whether the in-memory store needs a mutable `recipients` field, and whether two browser tabs previewing the same envelope can interfere. It also sets the shape Case 2 will have to bend.
 **Recorded default:** **stateless with respect to recipients.** The envelope stores `{ id, filename, size_bytes, page_count, created_at }` only. `charge-preview` is a pure function of `(request body, server-sourced price, server-sourced quota)`. Rationale: §9 says "Case 1 changes no quota", so there is nothing to persist; a stateless preview is trivially idempotent and concurrent-tab safe.
 **Trade-off accepted:** if Case 2 introduces a "send" step it will need a persisted recipient list. Adding a `recipients` field to the envelope record later is additive and cheap.
+**Answer:** use the default
 
 ### Q1.4 — Does the upload endpoint need an idempotency key?
 
@@ -77,6 +78,7 @@ This is a greenfield repository: there is no prior code, so `extension-modify` i
 **Why it matters:** an idempotency key store is real work (key → response cache + dedup window) and would consume a meaningful slice of a 24-minute budget.
 **Recorded default:** **no idempotency key in Case 1.** Envelopes are in-memory, free to create, and the frontend only ever holds one at a time (§7.5 — a second upload replaces the first). An orphaned envelope is invisible and evaporates on restart.
 **Trade-off accepted:** documented as a known gap in `docs/decisions.md`, not silently ignored.
+**Answer:** use the default
 
 ### Q1.5 — Money representation: `bigint` minor units, or a decimal library? *(extends bank)*
 
