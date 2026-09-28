@@ -25,3 +25,6 @@ dist-ssr
 *.zip
 *.next
 *out/
+analytics-dashboard/*
+taskmate/*
+docs/*
