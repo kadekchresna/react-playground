@@ -805,3 +805,149 @@ The engineer opted in to E2E scenario catalogs after PLAN.md was written, so thi
   E2E scenario IDs follow `SCEN-<STORY>-<P|N><n>`. Browser-level assertions live there; downstream `e2e-test` (mode generate-playwright) reads that file to generate Playwright tests. Story IDs in scenario codes use the short form (`ST-1`, `ST-2`, `ST-3`) — the same nodes as `EPIC-1-ST-1` … `EPIC-1-ST-3` here.
 
 - `INTEGRATION_SCENARIO.md` — **not generated.** Only the E2E catalog was opted into, and this file does not exist, so nothing links to it. Downstream `endpoint-tester` sources its cases from PLAN.md `## API Spec — OpenAPI YAML` plus the PRD §10 acceptance rows already enumerated in the `dod` blocks of `EPIC-1-ST-2.4` and `EPIC-1-ST-2.6`. Run `scenario-cataloguer` standalone later if a service-level catalog is wanted.
+
+---
+
+## Case-2 seam shaping — constraints on EPIC-1 subtasks
+
+> Source: `PLAN-case-2-delta.md` §4. Product issued Case 2 (`test_2_en.md`) while this plan
+> was still paper. These five items change the **shape** of EPIC-1 code so the Case-2
+> extension is additive. They ship **no Case-2 behaviour** and do not widen EPIC-1 scope.
+> Anything not on this list waits for the minute-24 checkpoint.
+
+| # | Applies to | Constraint | Delta ref |
+|---|---|---|---|
+| S1 | `EPIC-1-ST-3` `src/App.tsx` | Step state is `type Step = 1 \| 2 \| 3`, not a boolean. `3` stays unreachable and pill 3 stays locked (`ADR-005`, `LD-02`). Case 2 unlocks it by deleting a guard. | §4.1 |
+| S2 | `EPIC-1-ST-1` `pricing.ts`, `EPIC-1-ST-2` `config/account.ts` | Prices and quotas are **records**, not scalars: `PRICES = { signature }`, `QUOTA = { signature }`. `computeCharges` and `quotaRemaining` take the record shape from day one. In Case 1 the `meterai` key simply does not exist. | §4.2 |
+| S3 | `EPIC-1-ST-1` `recipient.ts` | `validateRecipientList` is an **ordered array of named stage functions** short-circuiting on first failure (`LD-24` unchanged), not a hardcoded `if` chain. Case 1 registers 3 stages; Case 2's B5 order inserts 9 more. | §4.3 |
+| S4 | `EPIC-1-ST-2` `charge-preview-service.ts` | The strict key allow-list is a **function of the request**, not a module constant. Case 2 needs `step` rejected in `parallel` and accepted in `sequential`. | §4.4 |
+| S5 | `EPIC-1-ST-3` `features/recipients/preview-controller` | The staleness guard keys on a **payload hash** of the preview input, stored beside the last result — not a monotonic request counter. Satisfies PRD §8.10 now and Case 2's A5.2 later; it is where `preview_token` attaches under P4. | §4.5 |
+
+Rejected as speculative: carrying an unused optional `meterai_count` on `RecipientInput`
+during Case 1 (delta §4.6). Cost of adding it at minute 24 is one type edit.
+
+One addition to an existing `dod`: `EPIC-1-ST-1.2`'s money suite must include
+`"10000.10"` round-trip and `"25000.10"` / `"45000.30"` sum assertions. Those are Case-2
+figures, but they are the values that would expose a float regression, and the suite is
+cheapest to write once. No other Case-1 `dod` changes.
+
+---
+
+## EPIC EPIC-2 — case-2-order-meterai-fields
+
+- **code:** `EPIC-2`
+- **status:** `TODO`
+- **sp:** not estimated — see note
+- **services:** `[subproject-a]`
+- **last-checkpoint:**
+- **description:**
+  Case 2 (`test_2_en.md`), handed over at the minute-24 checkpoint, continuing on the same
+  codebase. Three product changes plus one optional: e-meterai as a separately priced and
+  separately quota'd per-recipient count; a signing-order mode with contiguous steps; the
+  Step 3 "Place fields" screen with the count-vs-field reconciliation invariant; and an
+  atomic quota reservation behind `Send`. Full re-evaluation of this plan against it —
+  what survives, what breaks, the five broken kernel signatures, the new modules, the
+  replacement validation order — is in `PLAN-case-2-delta.md`. Read that before starting.
+  Verdict recorded there: **extend, don't tear open.** Six of seven ADRs survive; `ADR-005`
+  is reversed by product. `LD-18` and `LD-13` are superseded; `LD-02` becomes transitional.
+  **SP deliberately not estimated.** 46 minutes remain (`test_2_en.md` §A0) against a scope
+  product states is larger than the time. A1's P1→P4 priority order is the plan, and a
+  named sacrifice is worth more than four half-finished parts.
+
+### Story EPIC-2-ST-1 — P1: e-meterai — dual pricing, dual quota, per-recipient count
+
+- **code:** `EPIC-2-ST-1`
+- **status:** `TODO`
+- **services:** `[subproject-a]`
+- **last-checkpoint:**
+- **description:**
+  Highest priority (`test_2_en.md` A1). `meterai_count` per recipient (integer 0–3, default
+  0), never exceeding that recipient's `signature_count` (A3.2). Meterai price `"10000.10"`,
+  quota `3`, both server-sourced and both independent of the signature quota (A3.5, B1).
+  Breaks `computeCharges` and `quotaRemaining` per delta §2 — mitigated by seam S2 if it
+  shipped. Summary gains separate lines per A3.7 and dual usage display per A3.8. All
+  figures stay derived state (A3.9).
+- **dod:**
+  - B7 row 1: `parallel`, Rina 2 sig/1 met + Budi 1 sig/0 met → charges `"15000.00"` + `"10000.10"`, total `"25000.10"`, remaining `5`/`2`.
+  - B7 row 2: meterai exactly at quota (3) → total `"45000.30"`, remaining meterai `0`, **allowed**.
+  - B7 row 3: 4 meterai → `422 INSUFFICIENT_METERAI_QUOTA`, message distinguishable from the signature-quota message.
+  - B7 row 4: Rina 2 sig / 3 met → `422 METERAI_EXCEEDS_SIGNATURE`; the FE marks **that row**, not the whole form.
+  - B8.3 cost suite run with saved output; Case-1 money suite still green.
+- **commit:** `feat(meterai):`
+
+### Story EPIC-2-ST-2 — P2: signing order mode — steps, contiguity, keyboard reorder
+
+- **code:** `EPIC-2-ST-2`
+- **status:** `TODO`
+- **services:** `[subproject-a]`
+- **last-checkpoint:**
+- **description:**
+  `order_mode` selector above the recipient list: `parallel` (default, the Case-1
+  behaviour) or `sequential` (A2). New kernel module `steps.ts` — contiguity from 1 with
+  shared steps legal, plus eager renormalization on delete (A2.3, A2.4). `sequential`
+  groups recipients under visible step headers with parallel members marked (A2.5).
+  Reordering is **keyboard-mandatory**, drag-and-drop optional (A2.6); `aria-label` names
+  the recipient moved and focus survives the move (A2.7); no entered data is lost (A2.8).
+  Meterai carriers are confined to step 1 (A3.3), vacuous in `parallel` (A3.4).
+- **dod:**
+  - B7 row 5: Rina step 1, Budi + Citra step 2 → valid, `steps` has 2 entries, step 2 holds two emails.
+  - B7 row 6: Citra in step 2 given 1 meterai → `422 METERAI_NOT_IN_FIRST_STEP`.
+  - B7 row 7: `[1,3]`, `[2,3]`, `[0,1]` → `422 STEP_SEQUENCE_INVALID`.
+  - B7 row 8: `[1,2,2,3]`, sole member of step 1 deleted → renormalized `[1,1,2]`, other recipient data intact.
+  - B7 row 9: `parallel` payload carrying `step` → `422 UNKNOWN_FIELD` (seam S4).
+  - B8.1 step-normalization suite run with saved output.
+- **commit:** `feat(order):`
+
+### Story EPIC-2-ST-3 — P3: Step 3 Place fields + reconciliation invariant
+
+- **code:** `EPIC-2-ST-3`
+- **status:** `TODO`
+- **services:** `[subproject-a]`
+- **last-checkpoint:**
+- **description:**
+  Unlocks Step 3, reversing `ADR-005`. Left panel with signer selector + Signature/eMeterai
+  palette; **click-to-place is the mandatory path and must be fully keyboard-operable**,
+  drag-and-drop optional (A4.2). Placed fields show kind **and owner identity as text**, not
+  colour alone (A4.3). Per-recipient reconciliation progress with shortfall **and** excess
+  markers (A4.6). New kernel module `fields.ts`, including the **two-function geometry
+  split** — `clampFieldPosition` for the FE, `isFieldInBounds` for the BE, which rejects and
+  never clamps (B2). Pricing stays computed from counts, never from field count (A4.12).
+  Page 1 only; `Preview` and `Save as draft` stay disabled with an explanation (A4.7).
+- **dod:**
+  - B7 rows 10–11: count/field mismatch both directions → `422 FIELD_COUNT_MISMATCH`, UI shows `Signature 1/2` and the excess before submitting.
+  - B7 row 12: field owned by a non-recipient → `422 FIELD_UNKNOWN_RECIPIENT`.
+  - B7 rows 15–16: boundaries tested at `420`/`421` and `500`/`501`, `520`/`521` and `476`/`477` — UI clamps, API returns `422 FIELD_OUT_OF_BOUNDS`.
+  - B7 row 17: `page: 2` or `page: 0` → `422 FIELD_PAGE_INVALID`. B7 row 18: duplicate `id` → `422 FIELD_ID_DUPLICATE`.
+  - B7 row 19: a field placed entirely by keyboard; focus not lost afterwards.
+  - B7 rows 13–14 follow the decisions in delta §9 (flag, don't auto-drop) — visible, documented in `docs/decisions.md`, and tested.
+  - B8.2 suite run with saved output.
+- **commit:** `feat(fields):`
+
+### Story EPIC-2-ST-4 — P4 (OPTIONAL): `Send` — preview token + atomic reservation
+
+- **code:** `EPIC-2-ST-4`
+- **status:** `TODO`
+- **services:** `[subproject-a]`
+- **last-checkpoint:**
+- **description:**
+  **Attempt only if EPIC-2-ST-1…3 are all DONE and verified** (A1, A5). Default recommendation
+  recorded in delta §9 item 4: **do not attempt**; render `Send` disabled with an explanation
+  per A4.7 and state the sacrifice. This is the only genuine architecture change in Case 2 —
+  quota becomes mutable server state, `EnvelopeRecord` gains a lock, and `LD-18`
+  ("Case 1 never consumes quota") and `LD-20` (stateless w.r.t. recipients) both fall. See
+  delta §7 before starting.
+- **dod:**
+  - B7 row 22: `Send` with a valid token → `200`, **both** quotas decremented, envelope locked.
+  - B7 row 23: token predating a field change → `409 PREVIEW_STALE`; the UI offers recompute with **no loss** of entered data or placed fields.
+  - Post-reservation `charge-preview` or `reserve` → `409 ENVELOPE_LOCKED` (A5.5).
+  - `reserve` accepts **only** `{ preview_token }` — counts, prices, recipients or fields in the payload are rejected (A5.3).
+  - A5.7: double-click fires exactly one request.
+  - B8: a fault injected between the two quota writes leaves **neither** debited, proven by test output.
+- **commit:** `feat(reserve):`
+
+### Cross-cutting — EPIC-2 exit criteria
+
+- **B7 row 20** (preview A and B in flight, B resolves first, A ignored) is satisfied by seam S5 if it shipped; re-verify it after each of ST-1…ST-3, since each one changes the payload the hash is taken over.
+- **B7 row 21 — Case-1 regressions.** Upload, duplicate email, signature quota and filename sanitization must still be green. Run the full Case-1 suite at the close of every Case-2 story, not only at the end.
+- **B8 refactor rule.** Before any structural refactor (flat recipient array → step-based structure, or adding the field collection), **write and run the tests that lock in the old behaviour first**, then change it. This is explicitly assessed. Seam shaping reduces how much refactor is left; it does not excuse skipping this.
+- **A6 wrap-up.** Update `README.md`, `AGENTS.md`, `docs/decisions.md`, `docs/verification.md` and the transcript, then commit/tag `case-2`. `docs/decisions.md` must answer: what changed in the Case-1 data structures and why; every self-made assumption; and **which priority was sacrificed and what the risk is**. `docs/verification.md` must separate what was run with output, what is unverified, and what is believed weak.

@@ -329,15 +329,14 @@ aborts it.
   story's brief explicitly says "Do not tag. Do not push." I followed the brief. Eight
   Conventional-Commits commits exist on `feat/case-1-upload-and-recipients`, one per
   subtask; whoever owns the checkpoint can tag the head.
-- **G-2 — no real-browser pass.** `LD-32` wants wiring proved by a manual browser pass. **No
-  browser-automation tool is available in this session**, so I could not drive Chrome. In its
-  place, `app-smoke.test.tsx` renders the real `App` in jsdom against a `fetch` stubbed to
-  the contract the live server was separately proven to honour (§3). That is a weaker
-  instrument and the difference matters: jsdom gives DOM semantics but **no layout, no real
-  focus ring, no native file picker, no real drag-and-drop and no visual check**. The
-  following are therefore **UNVERIFIED in a real browser**: the `:focus-visible` outline is
-  actually visible; the `Browse` label opens a real OS file picker on Enter; drag-and-drop
-  works with a real `DataTransfer`; the layout is not broken.
+- **G-2 — CLOSED at the integration gate.** Originally filed as "no real-browser pass",
+  because no browser-automation tool was available to the story agent. It has since been
+  run in Chrome against both live processes (`apps/server` on `:3001`, Vite on `:5173`,
+  requests crossing the real dev-proxy boundary). See §9 below for the transcript. The
+  jsdom `app-smoke.test.tsx` remains as the regression instrument; the browser pass is what
+  proves the wiring. Still unverified even so: the `Browse` label opening a native OS file
+  picker on Enter (the automation attaches to the `input[type=file]` directly, bypassing the
+  picker), and drag-and-drop with a real `DataTransfer` — see G-6.
 - **G-3 — the 300 MB / oversize path was not exercised from the frontend.** The server-side
   limit is covered by `docs/evidence/server-tests.txt`. The browser's UX-only pre-check
   (`UX_ONLY_MAX_UPLOAD_BYTES` in `App.tsx`) is exercised through `validateFileMeta`'s own
@@ -389,3 +388,32 @@ aborts it.
   checked with an actual screen reader.
 - **The error-message copy for the five undesigned states (`LD-10`) is mine.** It is
   functional, consistent and states the cause, but no designer or PM has seen it.
+
+---
+
+## 9. Real-browser pass (integration gate, orchestrator-run)
+
+Run after all three stories landed, by the orchestrator rather than a story agent, which is
+why it appears here rather than in §3. Closes **G-2**.
+
+**Setup:** `apps/server` on `:3001` and Vite on `:5173`, both live. Every request below
+crossed the real dev-proxy boundary (`curl localhost:5173/api/health` → `{"status":"ok"}`),
+so this is the PRD §4 process boundary, not a stub.
+
+| # | Action in Chrome | Observed | PRD §7 row |
+|---|---|---|---|
+| 1 | Load `/` | Stepper renders 3 pills; pill 3 `Place fields (locked in this exercise)`; `From cloud` disabled with `Not available in this exercise`; `Continue` disabled with the visible reason `Upload a valid document to continue. The server decides whether it is valid.` | 1, LD-02, LD-05 |
+| 2 | Upload `agreement-vendor-2026.pdf` | Card shows `Uploaded · 8 pages · 69 B`; `Continue` enables; footer reason becomes `Ready to set recipients.` | 1 |
+| 3 | Inspect the card's remove control | `aria-label` = `Remove agreement-vendor-2026.pdf` — names the file | §7.4 |
+| 4 | `Continue` → Step 2 | Seeded Rina 2 / Budi 1; per-row `Rp10.000,00` / `Rp5.000,00`; `3 signatures × Rp5.000,00 per signature`; `Remaining signature quota 5 of 8`; `Total charge Rp15.000,00`; badged `Estimate` | 6, LD-11, LD-15 |
+| 5 | Set Budi to `7` (total 9) | `9 of 8 signatures — 1 over your quota` in both the summary and the footer; remaining clamps to `0 of 8`; `Continue` disabled | 7, LD-17 |
+| 6 | Keyboard focus during step 5 | `:focus-visible` outline **actually rendered** on the `+` button — the specific thing jsdom could not prove | G-2 |
+| 7 | Revert to `1`, press `Continue` | Panel turns green, badge flips `Estimate` → `Server-confirmed`, figures replaced by the server's, explanatory note added; no navigation, pill 3 stays locked | 6, LD-13 |
+| 8 | Remove, then upload `<img src=x onerror=alert(1)>.pdf` | Filename renders as **inert text**; **no dialog fired, no `img` element created**; card reads `Uploaded · 1 pages · 69 B` (correctly absent from the fixture table) | 4 |
+
+Row 8 is the one worth calling out: it was run deliberately as a live payload, so a failure
+would have fired `alert(1)` in the real browser. It did not.
+
+**Not covered by this pass:** the native file picker (automation attaches to the
+`input[type=file]` directly), real drag-and-drop (G-6), real timeout deadlines (G-4), and
+the oversize-from-UI path (G-3). Those gaps stand as written above.
