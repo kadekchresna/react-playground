@@ -1,0 +1,126 @@
+$ pnpm --filter @signed-doc/shared test
+# captured 2026-09-29T01:57:03Z on node v24.19.0 / pnpm 12.6.0
+
+$ vitest run --passWithNoTests --reporter=verbose
+
+ RUN  v3.2.7 /Users/kuro/project/react/react-playground/signed-doc/packages/shared
+
+ ✓ src/__tests__/money.test.ts > parseDecimalString > converts a 2-decimal string to integer minor units 1ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > keeps precision far beyond Number.MAX_SAFE_INTEGER 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000.0" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000.000" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "-1.00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "+1.00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "abc" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects " 5000.00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000.00 " with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5,000.00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5e3.00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects ".00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000." with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000.0a" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects non-string input with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > formatDecimalString > always renders exactly two fraction digits 0ms
+ ✓ src/__tests__/money.test.ts > formatDecimalString > rejects anything that is not a bigint, so a float can never be formatted 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 0.00 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 0.05 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 1.00 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 5000.00 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 10000.10 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 15000.00 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 45000.30 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > multiplyMinor > multiplies by an integer count exactly 0ms
+ ✓ src/__tests__/money.test.ts > multiplyMinor > refuses a non-integer or negative multiplier 0ms
+ ✓ src/__tests__/money.test.ts > sumMinor > sums an empty list to zero 0ms
+ ✓ src/__tests__/money.test.ts > sumMinor > adds fractional amounts with no float drift 0ms
+ ✓ src/__tests__/money.test.ts > sumMinor > sums a per-recipient breakdown the way charge preview does 0ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > returns the fixture page count for each listed filename 1ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > matches case-insensitively 0ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > returns 1 for any unlisted name 0ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > keys on the sanitized basename only — a path never matches a fixture 0ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > never returns NaN or undefined for hostile input 0ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > takes exactly one string argument, so file content cannot reach it 1ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — path components > reduces a traversal path to a bare basename (PRD §10) 1ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — path components > strips Windows separators too 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — path components > keeps a name that is already a bare basename 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — path components > trims surrounding whitespace and drops control characters 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — path components > rejects anything that cannot be reduced to a basename 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — XSS payload is preserved, not laundered > leaves the script-looking basename byte-for-byte intact (PRD §10) 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — XSS payload is preserved, not laundered > still strips the path from a payload that also traverses 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — XSS payload is preserved, not laundered > treats a slash inside a payload as the path separator it is 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — 200-character cap (PRD §6, LD-25) > leaves a 200-character name untouched 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — 200-character cap (PRD §6, LD-25) > truncates a 250-character name to exactly 200, extension intact 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — 200-character cap (PRD §6, LD-25) > truncates an extensionless name to 200 characters 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — 200-character cap (PRD §6, LD-25) > rejects a name whose extension alone fills the budget 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — 200-character cap (PRD §6, LD-25) > truncation happens after path stripping, not before 0ms
+ ✓ src/__tests__/file.test.ts > extensionOf > returns the lowercased extension without the dot 0ms
+ ✓ src/__tests__/file.test.ts > extensionOf > takes the LAST extension, which is what makes .pdf.exe catchable 0ms
+ ✓ src/__tests__/file.test.ts > extensionOf > returns an empty string when there is no extension 0ms
+ ✓ src/__tests__/file.test.ts > isAllowedExtension (PRD §6) > accepts all six allowed extensions in any case 0ms
+ ✓ src/__tests__/file.test.ts > isAllowedExtension (PRD §6) > rejects everything else 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > accepts an allowed document and returns the sanitized name 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > rejects .exe and the double-extension .pdf.exe (PRD §10) 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > judges the extension from the sanitized name, never from a directory (PRD §7.9) 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > rejects an unusable filename before it looks at anything else 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > treats a zero-byte payload as no document at all 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > enforces the caller-supplied size limit and names it in the message 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > accepts a file exactly on the limit 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > reports a different limit when a different limit is passed in 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > accepts only integers 1..20 1ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects 0 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects -1 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects 2.5 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects "abc" 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects "" 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects null 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects undefined 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects 21 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects a numeric string, because coercion is the frontend’s job 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects NaN, Infinity and non-scalars 0ms
+ ✓ src/__tests__/recipient.test.ts > clampSignatureCount — frontend, coercing, never NaN/undefined (PRD §8.3) > clamps out-of-range integers into 1..20 instead of discarding them 0ms
+ ✓ src/__tests__/recipient.test.ts > clampSignatureCount — frontend, coercing, never NaN/undefined (PRD §8.3) > keeps the previous value for anything that is not an integer 1ms
+ ✓ src/__tests__/recipient.test.ts > clampSignatureCount — frontend, coercing, never NaN/undefined (PRD §8.3) > accepts a well-formed numeric string, which is what a number input emits 0ms
+ ✓ src/__tests__/recipient.test.ts > clampSignatureCount — frontend, coercing, never NaN/undefined (PRD §8.3) > never returns NaN or undefined for any hostile input 0ms
+ ✓ src/__tests__/recipient.test.ts > clampSignatureCount — frontend, coercing, never NaN/undefined (PRD §8.3) > repairs a corrupted previous value rather than propagating it 0ms
+ ✓ src/__tests__/recipient.test.ts > normalizeEmail (PRD §8.4) > trims and lowercases 0ms
+ ✓ src/__tests__/recipient.test.ts > normalizeEmail (PRD §8.4) > never returns undefined for non-string input 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > passes a well-formed recipient 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > rejects an empty or whitespace-only name (PRD §11.2) 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > rejects a malformed email (PRD §11.2) 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > rejects an out-of-range signature_count with its own code (PRD §11.2) 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > reports signature_count first when several fields are wrong 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > survives a missing or non-object recipient 0ms
+ ✓ src/__tests__/recipient.test.ts > findDuplicateEmailGroups (PRD §8.4, §10) > groups a trimmed, case-variant pair and reports both indexes 0ms
+ ✓ src/__tests__/recipient.test.ts > findDuplicateEmailGroups (PRD §8.4, §10) > returns no groups when every email is distinct 0ms
+ ✓ src/__tests__/recipient.test.ts > findDuplicateEmailGroups (PRD §8.4, §10) > reports every member of a group larger than two 0ms
+ ✓ src/__tests__/recipient.test.ts > findDuplicateEmailGroups (PRD §8.4, §10) > reports multiple independent groups in first-occurrence order 0ms
+ ✓ src/__tests__/recipient.test.ts > findDuplicateEmailGroups (PRD §8.4, §10) > ignores empty emails, which are already a per-recipient failure 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > registers exactly the Case 1 stages, in order 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > accepts a valid list 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > rejects an empty list and an over-long list (PRD §6) 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > rejects a payload that is not an array at all 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > short-circuits on the first failing stage: count before per-recipient 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > short-circuits on the first failing stage: per-recipient before duplicates 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > reports the first offending recipient in index order 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > reaches the duplicate stage only when every recipient is individually valid 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > returns a ValidationFailure shape the error mapper can render 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > derives per-row charges, total signatures and the total charge 3ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > totals an empty list to zero rather than throwing 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > is exact at the maximum a document can reach 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > stays exact with a fractional unit price, where a float would drift 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > reads the price from the record it is given, never from a constant 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > contributes nothing for a row whose count is not a valid integer 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining (PRD §8.7, §11.1 quota boundary, LD-17) > reports the remainder for the PRD §10 Rina + Budi row 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining (PRD §8.7, §11.1 quota boundary, LD-17) > treats the boundary as inside the quota 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining (PRD §8.7, §11.1 quota boundary, LD-17) > clamps remaining at 0 and reports how far over the list is 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining (PRD §8.7, §11.1 quota boundary, LD-17) > handles an empty list 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining (PRD §8.7, §11.1 quota boundary, LD-17) > reads the quota from the record it is given, never from a constant 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges + quotaRemaining compose the way charge-preview does > reproduces the PRD §10 over-quota row end to end 0ms
+
+ Test Files  5 passed (5)
+      Tests  113 passed (113)
+   Start at  09:57:03
+   Duration  315ms (transform 182ms, setup 0ms, collect 279ms, tests 19ms, environment 1ms, prepare 438ms)
+
