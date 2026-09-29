@@ -21,6 +21,9 @@ import { validateFileMeta } from '@signed-doc/shared';
 import { ApiRequestError, UNREACHABLE_MESSAGE, isCancellation } from './api/client.js';
 import { uploadEnvelope } from './api/upload.js';
 import { MAX_REACHABLE_STEP, Stepper, type Step } from './components/Stepper.js';
+import { RecipientsStep } from './features/recipients/RecipientsStep.js';
+import { recipientsReducer } from './features/recipients/recipients-reducer.js';
+import { createSeedState } from './features/recipients/seed.js';
 import { UploadStep } from './features/upload/UploadStep.js';
 import {
   initialUploadState,
@@ -40,6 +43,9 @@ const UX_ONLY_MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export function App(): JSX.Element {
   const [step, setStep] = useState<Step>(1);
   const [upload, dispatchUpload] = useReducer(uploadReducer, initialUploadState);
+  // Held here, not in `RecipientsStep`, so `Back` and forward keep every typed
+  // value (LD-15 seeds the initial rows; the server never assumes recipients).
+  const [recipients, dispatchRecipients] = useReducer(recipientsReducer, undefined, createSeedState);
 
   // Seam S1 / ADR-005: the one guard that keeps Step 3 unreachable.
   const goTo = useCallback((next: Step) => {
@@ -133,13 +139,12 @@ export function App(): JSX.Element {
           onContinue={() => goTo(2)}
         />
       ) : (
-        <main className="board">
-          <h1>Who signs it?</h1>
-          <p className="board__sub">The recipients step is wired in the following subtasks.</p>
-          <button type="button" className="btn btn--ghost" onClick={() => goTo(1)}>
-            Back
-          </button>
-        </main>
+        <RecipientsStep
+          envelope={envelope}
+          state={recipients}
+          dispatch={dispatchRecipients}
+          onBack={() => goTo(1)}
+        />
       )}
     </div>
   );
