@@ -493,3 +493,28 @@ input[aria-invalid='true'] {
   font-weight: 600;
   margin: 10px 0 0;
 }
+
+.upload-field {
+  margin-bottom: 8px;
+}
+
+.dropzone__prompt {
+  margin: 0;
+}
+
+/* `Browse` is a real <label for>, focusable and Enter/Space-activatable. */
+.dropzone__browse {
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.notice__message {
+  margin: 0;
+  font-weight: 600;
+}
+
+.notice__meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
