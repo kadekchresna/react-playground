@@ -1,0 +1,29 @@
+{
+  "name": "@signed-doc/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Express HTTP service. Owns price, quota and the upload size limit; re-validates every rule server-side.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@signed-doc/shared": "workspace:*",
+    "express": "^4.21.2",
+    "multer": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.10.2",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.4"
+  }
+}

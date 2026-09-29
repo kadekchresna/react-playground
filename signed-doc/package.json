@@ -1,0 +1,19 @@
+{
+  "name": "signed-doc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Case 1 — Upload document + Set recipients. React/Vite frontend, Express backend, one shared TypeScript validation + pricing kernel.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

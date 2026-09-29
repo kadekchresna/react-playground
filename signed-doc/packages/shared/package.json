@@ -1,0 +1,27 @@
+{
+  "name": "@signed-doc/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Frozen validation, sanitization, money and pricing kernel. Zero runtime dependencies; imports nothing from either app.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.4"
+  }
+}
