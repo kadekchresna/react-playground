@@ -1,0 +1,156 @@
+$ pnpm --filter @signed-doc/web test -- --reporter=verbose
+# captured 2026-09-29T02:25:38Z on node v24.19.0 / pnpm 12.6.0
+
+
+ RUN  v3.2.7 /Users/kuro/project/react/react-playground/signed-doc/apps/web
+
+ ✓ src/__tests__/upload-machine.test.ts > initial state > starts idle with no document and no error 1ms
+ ✓ src/__tests__/upload-machine.test.ts > initial state > gates Continue shut in the empty state (PRD §7.6) 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > reaches validating 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > reaches uploading 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > reaches success 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > reaches error from the frontend pre-check 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > reaches error from the server 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > returns to idle 0ms
+ ✓ src/__tests__/upload-machine.test.ts > SELECT_FILE replaces — files never accumulate (PRD §7.5) > replaces the held document when a second file is chosen from success 0ms
+ ✓ src/__tests__/upload-machine.test.ts > SELECT_FILE replaces — files never accumulate (PRD §7.5) > the state shape has exactly one document slot 1ms
+ ✓ src/__tests__/upload-machine.test.ts > SELECT_FILE replaces — files never accumulate (PRD §7.5) > replaces from an error state too, clearing the previous cause 0ms
+ ✓ src/__tests__/upload-machine.test.ts > SELECT_FILE replaces — files never accumulate (PRD §7.5) > replaces mid-upload and orphans the in-flight attempt 0ms
+ ✓ src/__tests__/upload-machine.test.ts > REMOVE restores the empty state (PRD §7.5) > drops the document and the envelope 0ms
+ ✓ src/__tests__/upload-machine.test.ts > REMOVE restores the empty state (PRD §7.5) > clears an error state as well 0ms
+ ✓ src/__tests__/upload-machine.test.ts > REMOVE restores the empty state (PRD §7.5) > a result arriving after REMOVE cannot bring the card back 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > keeps the FILE_TYPE_NOT_ALLOWED cause distinct 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > keeps the FILE_TOO_LARGE cause distinct 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > keeps the FILE_REQUIRED cause distinct 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > keeps the FILENAME_INVALID cause distinct 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > marks the rejection as decided by the client, not by the server 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > is ignored outside validating — it can never overwrite a successful upload 0ms
+ ✓ src/__tests__/upload-machine.test.ts > RETRY (PRD §7.7, LD-29) > re-enters uploading and preserves the selected file 0ms
+ ✓ src/__tests__/upload-machine.test.ts > RETRY (PRD §7.7, LD-29) > starts a new attempt so the failed one cannot resolve into it 0ms
+ ✓ src/__tests__/upload-machine.test.ts > RETRY (PRD §7.7, LD-29) > succeeds on the retry, clearing the error and enabling Continue 0ms
+ ✓ src/__tests__/upload-machine.test.ts > RETRY (PRD §7.7, LD-29) > is a no-op after a client-side rejection — the same file fails the same rule 0ms
+ ✓ src/__tests__/upload-machine.test.ts > RETRY (PRD §7.7, LD-29) > is a no-op from idle, validating, uploading and success 0ms
+ ✓ src/__tests__/upload-machine.test.ts > the gate opens only on a real server success (PRD §7.6) > stays shut while validating and uploading 0ms
+ ✓ src/__tests__/upload-machine.test.ts > the gate opens only on a real server success (PRD §7.6) > opens on success and exposes the server metadata 0ms
+ ✓ src/__tests__/upload-machine.test.ts > the gate opens only on a real server success (PRD §7.6) > carries the server-issued price and quota — the browser has no other source 0ms
+ ✓ src/__tests__/upload-machine.test.ts > the reducer is pure > never mutates the state it is given 0ms
+ ✓ src/__tests__/upload-machine.test.ts > the reducer is pure > returns the same reference for an action it ignores 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > seed (LD-15, PRD §6) > seeds Rina Halim and Budi Santoso exactly as the PRD gives them 1ms
+ ✓ src/__tests__/recipients-reducer.test.ts > seed (LD-15, PRD §6) > uses @example.test fixture addresses only (PRD §5) 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > seed (LD-15, PRD §6) > gives every row a stable, distinct id 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > no derived total is stored (PRD §8.6) > has no total-shaped key anywhere in the state 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > no derived total is stored (PRD §8.6) > a row carries only its own fields plus local id and raw text 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > SET_NAME / SET_EMAIL > stores the raw text without trimming — validation trims, editing does not 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > SET_NAME / SET_EMAIL > accepts an empty name so the user can clear a field mid-edit 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > SET_NAME / SET_EMAIL > leaves other rows alone 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > SET_NAME / SET_EMAIL > ignores an out-of-range index 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing " " 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "abc" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "2.5" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "-1" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "0" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "25" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "1e3" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "NaN" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "undefined" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "+3" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "٣" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "２" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > the four values PRD §10 names settle on the documented results 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > shows the settled value in the box after blur, so the text cannot lie 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > lets the box be visually empty mid-typing without touching the number 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > does not snap an in-range value under the cursor while typing 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > holds the previous number while an over-range value is being typed 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > INC / DEC stop at the bounds (PRD §8.3) > DEC stops at 1 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > INC / DEC stop at the bounds (PRD §8.3) > INC stops at 20 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > INC / DEC stop at the bounds (PRD §8.3) > INC from the seed advances by exactly one 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > INC / DEC stop at the bounds (PRD §8.3) > repairs a box left mid-edit rather than stepping from the stale text 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > ADD_ROW appends an empty row defaulting to 1 signature 1ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > ADD_ROW at 10 rows leaves the list at 10 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > REMOVE_ROW at 1 row leaves the list at 1 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > REMOVE_ROW removes the named row and keeps the others intact 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > never reuses an id, so React keys stay stable across a remove 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > ignores an out-of-range REMOVE_ROW index 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > accessibleNameFor (PRD §8.12 — the mockup's own fallback) > uses the trimmed name when there is one 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > accessibleNameFor (PRD §8.12 — the mockup's own fallback) > falls back to signer {i+1} when the name is blank 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > the reducer is pure > never mutates the state it is given 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > the reducer is pure > returns the same reference when nothing changes 0ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > is stable for the same payload 1ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > changes when any recipient field changes 0ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > changes when the list length or order changes 0ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > changes when the envelope changes 0ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > ignores property order and local-only fields, so a re-render is not a change 0ms
+ ✓ src/__tests__/preview-controller.test.ts > the happy path > goes loading -> confirmed and files the result under the payload key 0ms
+ ✓ src/__tests__/preview-controller.test.ts > the happy path > sends exactly the wire fields, with no price, quota or total 1ms
+ ✓ src/__tests__/preview-controller.test.ts > the happy path > notifies subscribers on every state change 0ms
+ ✓ src/__tests__/preview-controller.test.ts > a stale response never becomes the active result (PRD §8.10, §10 row 12) > drops the older response when two are in flight and the SECOND resolves first 2ms
+ ✓ src/__tests__/preview-controller.test.ts > a stale response never becomes the active result (PRD §8.10, §10 row 12) > drops the older response when it resolves first but has already been superseded 2ms
+ ✓ src/__tests__/preview-controller.test.ts > a stale response never becomes the active result (PRD §8.10, §10 row 12) > a stale FAILURE cannot raise a banner over newer data either 2ms
+ ✓ src/__tests__/preview-controller.test.ts > a stale response never becomes the active result (PRD §8.10, §10 row 12) > aborts the superseded request rather than leaving it running (LD-28) 0ms
+ ✓ src/__tests__/preview-controller.test.ts > a stale response never becomes the active result (PRD §8.10, §10 row 12) > keeps exactly one request in flight per intent — no queue, no auto-retry (LD-29) 0ms
+ ✓ src/__tests__/preview-controller.test.ts > any change to recipient data invalidates the previous server result (§8.10) > a confirmed result is unreadable for the edited payload 0ms
+ ✓ src/__tests__/preview-controller.test.ts > any change to recipient data invalidates the previous server result (§8.10) > aborts an in-flight request when the data changes under it 0ms
+ ✓ src/__tests__/preview-controller.test.ts > any change to recipient data invalidates the previous server result (§8.10) > a response arriving after the data changed is dropped 1ms
+ ✓ src/__tests__/preview-controller.test.ts > any change to recipient data invalidates the previous server result (§8.10) > keying on the PAYLOAD, not a counter: editing back restores the server's own answer 0ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > surfaces a 10 s timeout as the LD-28 message, filed under the current key 0ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > surfaces a server 422 with its code and details so the rows can be marked 0ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > surfaces ENVELOPE_NOT_FOUND rather than leaving a stale total on screen 0ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > retries only when asked, and only the last intent 2ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > retry before any request is a no-op 0ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > never rejects to the caller — a failure has a rendered home, not a catch block 0ms
+ ✓ src/__tests__/preview-controller.test.ts > dispose > aborts in-flight work and forgets the result 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > renders the PRD §10 Rina + Budi total 1ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > renders the unit price 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > renders the quota-boundary total 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > renders zero 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > keeps a non-zero fraction — the digits are not dropped 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > groups beyond Number.MAX_SAFE_INTEGER exactly 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > shows a malformed value verbatim instead of throwing inside render 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatBytes > renders the mockup's 1.4 MB figure 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatBytes > renders small sizes in KB and B 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > carries exactly one top-level key 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > carries exactly three keys per recipient — no price, total or quota 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > drops local-only fields such as the row id and the in-progress count text 1ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > serializes to a body with no commercial key anywhere 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > escapes the envelope id into the path 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > returns the parsed body on 2xx 3ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > normalizes a 422 into the server's code, message and details 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > normalizes a 404 envelope-not-found 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > degrades an unrecognized error body to SERVER_ERROR without leaking it 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > aborts on timeout and surfaces the LD-28 message, exactly once 7ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > reports a caller cancellation as REQUEST_CANCELLED, not as a timeout 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > composes the caller signal and the timeout into the ONE signal fetch sees (LD-28) 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > never reaches the network when the caller signal is already aborted 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > reports a transport throw as NETWORK_ERROR with the same retryable message 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > reports an unreadable 2xx body rather than returning undefined 0ms
+ ✓ src/__tests__/app-smoke.test.tsx > stepper (ADR-005, LD-02, seam S1) > renders three pills with Place fields locked, non-focusable and not navigable 16ms
+ ✓ src/__tests__/app-smoke.test.tsx > stepper (ADR-005, LD-02, seam S1) > marks the active pill with aria-current="step" and no other 3ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 gating (PRD §7.6) > disables Continue in the empty state with a visible, associated reason 28ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 gating (PRD §7.6) > renders the mockup copy and the disabled From cloud control (LD-05) 7ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 gating (PRD §7.6) > every input on the step has an associated label (PRD §8.12) 2ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 upload (PRD §7.2, §7.4, §7.5, §10 XSS row) > renders the XSS-shaped filename as inert text and enables Continue 16ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 upload (PRD §7.2, §7.4, §7.5, §10 XSS row) > rejects a bad extension in the browser with a per-cause message and sends nothing 7ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 upload (PRD §7.2, §7.4, §7.5, §10 XSS row) > renders a server rejection from its code, with a user-driven retry 14ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 upload (PRD §7.2, §7.4, §7.5, §10 XSS row) > replaces on re-upload — never two cards (PRD §7.5) 13ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 derived totals (PRD §8.6, §8.7, §10 row 6) > shows the seeded list, its per-row charges and the estimated total 17ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 derived totals (PRD §8.6, §8.7, §10 row 6) > recomputes in render — one click changes the row charge and the total together 18ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 derived totals (PRD §8.6, §8.7, §10 row 6) > never lets the count become NaN, whatever is typed (PRD §8.3) 14ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > disables Continue over quota, clamps remaining at 0 and names the numbers 17ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > marks BOTH colliding rows on a case- and whitespace-insensitive duplicate 18ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > keeps two simultaneous blockers both visible rather than collapsing them 16ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > disables Add signer at ten rows with the reason next to it (LD-16) 88ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > disables remove on the last remaining row (LD-12) 15ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > labels a blank row's controls with the mockup's signer {i+1} fallback 22ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 Continue — the server is the authority (PRD §8.9, LD-13) > sends only recipients, and swaps the estimate for the server's figures 19ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 Continue — the server is the authority (PRD §8.9, LD-13) > drops the server-confirmed label as soon as the data changes (§8.10) 20ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 Continue — the server is the authority (PRD §8.9, LD-13) > surfaces a 422 by code with a retry that loses nothing 27ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 Continue — the server is the authority (PRD §8.9, LD-13) > renders Save as draft as inert (LD-05) 12ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 Continue — the server is the authority (PRD §8.9, LD-13) > Back returns to Step 1 with the document still uploaded 15ms
+ ✓ src/__tests__/app-smoke.test.tsx > every Step 2 input has an associated label (PRD §8.12) > holds for the name, email and signature inputs of every row 10ms
+
+ Test Files  5 passed (5)
+      Tests  144 passed (144)
+   Start at  10:25:39
+   Duration  1.50s (transform 334ms, setup 0ms, collect 669ms, tests 476ms, environment 2.89s, prepare 289ms)
+
