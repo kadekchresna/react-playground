@@ -4,14 +4,14 @@
  *
  * This is the densest acceptance coverage in the repo and the place the fixed
  * validation order is actually proven — Case 1's five stages, and Case 2's
- * extension of them (`test_2_en.md` §B5, P1). Order is asserted BY
+ * extension of them (`test_2_en.md` §B5, P1 and P2). Order is asserted BY
  * CONSTRUCTION, not by reading the source: each ordering test sends a request
  * that violates two rules at once and pins which one is reported.
  *
  * Every Case-1 expectation below is still here and still exact. Where Case 2
- * widened a response body the fixture gained a `meterai` key and NOT a changed
- * value — §B7.21 assesses Case-1 regressions, so a Case-1 figure moving would
- * be the bug, not the fix.
+ * widened a response body the fixture gained keys — `meterai` for P1,
+ * `order_mode` and `steps` for P2 — and NOT a changed value. §B7.21 assesses
+ * Case-1 regressions, so a Case-1 figure moving would be the bug, not the fix.
  *
  * Fixture emails are `@example.test` throughout — no real personal data
  * anywhere in the repository (PRD §5).
@@ -29,6 +29,7 @@ interface RecipientPayload {
   email?: unknown;
   signature_count?: unknown;
   meterai_count?: unknown;
+  step?: unknown;
 }
 
 const RINA = { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2 };
@@ -68,6 +69,13 @@ describe('POST /api/envelopes/:id/charge-preview — the authoritative total', (
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
+      // Case 2 §B4 widened the body again for P2. The request carries no
+      // `order_mode`, so it means `parallel` — exactly what this Case-1 payload
+      // always meant — and §A3.4 makes that one step holding everyone.
+      order_mode: 'parallel',
+      steps: [
+        { step: 1, recipient_emails: ['rina.halim@example.test', 'budi.santoso@example.test'] },
+      ],
       recipient_count: 2,
       total_signatures: 3,
       // Case 2 §B4 widened the body. Neither recipient asks for a duty stamp,
@@ -234,6 +242,9 @@ describe('POST /api/envelopes/:id/charge-preview — the strict key allow-list',
 
   it('refuses an unknown key inside a recipient and gives its path', async () => {
     const { app, envelopeId } = await appWithEnvelope();
+    // No `order_mode` means `parallel`, where `step` is not an accepted key
+    // (§B7.9). The accepted recipient shape is a function of the mode, so this
+    // payload is deliberately mode-less.
     const response = await preview(app, envelopeId, {
       recipients: [RINA, { ...BUDI, step: 1 }],
     });
@@ -385,6 +396,12 @@ describe('POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1)', () =
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
+      // P2 widened the body; §B7.1 is a `parallel` row, so this is the single
+      // group of §A3.4 and every P1 figure below is untouched.
+      order_mode: 'parallel',
+      steps: [
+        { step: 1, recipient_emails: ['rina.halim@example.test', 'budi.santoso@example.test'] },
+      ],
       recipient_count: 2,
       total_signatures: 3,
       total_meterai: 1,
@@ -502,7 +519,7 @@ describe('POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1)', () =
     expect(response.body.total_charge).toBe('15000.00');
   });
 
-  it('accepts meterai_count as a known key, while step is still UNKNOWN_FIELD', async () => {
+  it('accepts meterai_count as a known key, while step stays UNKNOWN_FIELD here', async () => {
     const { app, envelopeId } = await appWithEnvelope();
 
     const accepted = await preview(app, envelopeId, {
@@ -510,8 +527,9 @@ describe('POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1)', () =
     });
     expect(accepted.status).toBe(200);
 
-    // P2 has not shipped, so there is no rule behind `step` and no entry for it
-    // in the allow-list (§B7.9 is a P2 row).
+    // This payload names no mode, so it is `parallel` (§A2), and §B7.9 makes
+    // `step` an unaccepted key there — P2 shipping changed nothing about it.
+    // The sequential counterpart lives in the P2 block below.
     const refused = await preview(app, envelopeId, {
       recipients: [{ ...RINA, meterai_count: 1, step: 1 }],
     });
@@ -620,5 +638,369 @@ describe('POST /api/envelopes/:id/charge-preview — §B5 order, with meterai', 
     expect(response.status).toBe(422);
     expect(response.body.error.code).toBe('INSUFFICIENT_METERAI_QUOTA');
     expect(response.body.error.message).toBe('4 of 3 eMeterai - 1 over your eMeterai quota');
+  });
+});
+
+/**
+ * Signing order — `test_2_en.md` §A2, §A3.3/§A3.4, §B4, §B7 rows 5-9 (P2).
+ *
+ * Three things are proven here and nowhere else in this package:
+ *
+ * 1. `order_mode` and `steps` are on EVERY `200`, in both modes (§B4). The
+ *    parallel shape is the single group §A3.4 defines, so a client has one
+ *    shape to render rather than two.
+ * 2. `step` is accepted in `sequential` and refused in `parallel` (§B7.9) —
+ *    the allow-list is a function of the body, and this is the only evidence
+ *    that the branch is actually wired.
+ * 3. A malformed `order_mode` reaches the rule and comes back
+ *    `ORDER_MODE_INVALID`, NOT `UNKNOWN_FIELD`. Those two are easy to confuse
+ *    from the outside and mean opposite things to a client: one says "that is
+ *    not a mode", the other says "delete this field".
+ */
+describe('POST /api/envelopes/:id/charge-preview — signing order (§A2, P2)', () => {
+  it('§B7.5 — sequential with Rina 1, Budi 2, Citra 2 gives 2 steps, the second shared', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...RINA, step: 1 },
+        { ...BUDI, step: 2 },
+        { ...CITRA, step: 2 },
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.order_mode).toBe('sequential');
+    expect(response.body.steps).toHaveLength(2);
+    expect(response.body.steps).toEqual([
+      { step: 1, recipient_emails: ['rina.halim@example.test'] },
+      // §A2.2: sharing a step is the normal case, not an edge one — these two
+      // sign in parallel inside step 2.
+      { step: 2, recipient_emails: ['budi.santoso@example.test', 'citra.dewi@example.test'] },
+    ]);
+
+    // The order mode changes who is invited when, never what it costs: 4
+    // signatures at the Case-1 price, no duty stamps.
+    expect(response.body.recipient_count).toBe(3);
+    expect(response.body.total_signatures).toBe(4);
+    expect(response.body.total_meterai).toBe(0);
+    expect(response.body.total_charge).toBe('20000.00');
+    expect(response.body.quota_remaining).toEqual({ signature: 4, meterai: 3 });
+  });
+
+  it('orders the steps ascending and normalizes their emails', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // Rows arrive in step order 2, 1 — `[2,1]` is the contiguous SET {1,2}, so
+    // it is valid (§A2.3 is about the set, not the row sequence).
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...BUDI, email: '  Budi.Santoso@Example.test ', step: 2 },
+        { ...RINA, step: 1 },
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.steps).toEqual([
+      { step: 1, recipient_emails: ['rina.halim@example.test'] },
+      { step: 2, recipient_emails: ['budi.santoso@example.test'] },
+    ]);
+  });
+
+  it('echoes parallel and one group, whether the mode is sent or left out', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const oneGroup = [
+      { step: 1, recipient_emails: ['rina.halim@example.test', 'budi.santoso@example.test'] },
+    ];
+
+    // §A2: absence IS `parallel`, so a byte-for-byte Case-1 payload and an
+    // explicit `parallel` one must answer identically (§B7.21).
+    const implicit = await preview(app, envelopeId, { recipients: [RINA, BUDI] });
+    expect(implicit.status).toBe(200);
+    expect(implicit.body.order_mode).toBe('parallel');
+    expect(implicit.body.steps).toEqual(oneGroup);
+
+    const explicit = await preview(app, envelopeId, {
+      order_mode: 'parallel',
+      recipients: [RINA, BUDI],
+    });
+    expect(explicit.status).toBe(200);
+    expect(explicit.body).toEqual(implicit.body);
+  });
+
+  it('§B7.6 — Citra carrying eMeterai in step 2 is refused and named', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...RINA, step: 1 },
+        { ...BUDI, step: 2 },
+        { ...CITRA, meterai_count: 1, step: 2 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('METERAI_NOT_IN_FIRST_STEP');
+    // §A3.3 requires the reason to point at THAT recipient, so the failure
+    // carries both the row and the identity needed to word a sentence about it.
+    expect(response.body.error.details.recipient_index).toBe(2);
+    expect(response.body.error.details.recipient_email).toBe('citra.dewi@example.test');
+    expect(response.body.error.message).toContain('citra.dewi@example.test');
+    expect(response.body.error.message).toContain('step 2');
+    expect(response.body.total_charge).toBeUndefined();
+  });
+
+  it('allows eMeterai in step 1 — the rule is about step 2 and later', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...RINA, meterai_count: 1, step: 1 },
+        { ...BUDI, step: 2 },
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.total_meterai).toBe(1);
+    expect(response.body.total_charge).toBe('25000.10');
+  });
+
+  it('§A3.4 — the placement rule does not bind in parallel', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // The same duty stamp that is illegal in step 2 is fine here: parallel is a
+    // single step, so there is no later step for a carrier to stray into.
+    const response = await preview(app, envelopeId, {
+      order_mode: 'parallel',
+      recipients: [RINA, { ...BUDI, meterai_count: 1 }],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.total_meterai).toBe(1);
+    expect(response.body.steps).toHaveLength(1);
+  });
+
+  it.each([
+    ['[1,3]', [1, 3], 'Step numbers must be contiguous starting at 1 - got 1, 3'],
+    ['[2,3]', [2, 3], 'Step numbers must be contiguous starting at 1 - got 2, 3'],
+  ])('§B7.7 — steps sent as %s are refused as a gap', async (_label, [first, second], message) => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...RINA, step: first },
+        { ...BUDI, step: second },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('STEP_SEQUENCE_INVALID');
+    expect(response.body.error.message).toBe(message);
+    // No single row is at fault in a gap, so none is marked — pointing at one
+    // would be a guess the UI would render as fact.
+    expect(response.body.error.details).toBeUndefined();
+  });
+
+  it('§B7.7 — steps sent as [0,1] are refused, and the zero row is named', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...RINA, step: 0 },
+        { ...BUDI, step: 1 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('STEP_SEQUENCE_INVALID');
+    // Here one row IS at fault: step 0 is not a step at all (§A2.1).
+    expect(response.body.error.details.recipient_index).toBe(0);
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['a numeric string', '2'],
+    ['fractional', 1.5],
+    ['null', null],
+  ])('refuses a sequential step that is %s, without ever coercing it', async (_label, value) => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const recipient: RecipientPayload = { ...RINA };
+    if (value !== undefined) recipient.step = value;
+
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [recipient, { ...BUDI, step: 1 }],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('STEP_SEQUENCE_INVALID');
+    expect(response.body.error.details.recipient_index).toBe(0);
+    expect(response.body.total_charge).toBeUndefined();
+  });
+
+  it('§B7.9 — a parallel payload carrying step is UNKNOWN_FIELD', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      order_mode: 'parallel',
+      recipients: [RINA, { ...BUDI, step: 1 }],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('UNKNOWN_FIELD');
+    expect(response.body.error.details.field).toBe('recipients[1].step');
+    // Not silently dropped: nothing was computed at all.
+    expect(response.body.total_charge).toBeUndefined();
+  });
+
+  it.each([
+    ['a near miss in case', 'Parallel'],
+    ['a plausible synonym', 'serial'],
+    ['empty', ''],
+    ['null', null],
+    ['a number', 1],
+    ['an object', { mode: 'sequential' }],
+  ])('refuses an order_mode that is %s with ORDER_MODE_INVALID', async (_label, value) => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      order_mode: value,
+      recipients: [RINA, BUDI],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('ORDER_MODE_INVALID');
+    expect(response.body.error.message).toBe('order_mode must be "parallel" or "sequential"');
+    // The point of the unconditional allow-list entry: `order_mode` is a key
+    // §B4 requires, so a bad VALUE must reach the rule instead of being masked
+    // as a key the server does not accept.
+    expect(response.body.error.code).not.toBe('UNKNOWN_FIELD');
+    // A request-level field has no row to mark (contrast §B7.6).
+    expect(response.body.error.details).toBeUndefined();
+  });
+});
+
+/**
+ * §B5's P2 order, asserted the way the rest of this file asserts order: every
+ * request below breaks TWO rules at once and pins which one is reported. The
+ * two new stages are INTERLEAVED, not appended — `step-structure` sits between
+ * duplicate emails and `meterai-vs-signature`, and `meterai-step-placement`
+ * right after it — so appending them would pass a "both stages exist" test and
+ * fail every one of these.
+ */
+describe('POST /api/envelopes/:id/charge-preview — §B5 order, with signing order', () => {
+  it('reports the payload shape before the order mode', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // A mode that is not a mode, and a `step` that is unaccepted because of it.
+    // §B5 puts payload shape first, so the surplus key is what comes back.
+    const response = await preview(app, envelopeId, {
+      order_mode: 'nope',
+      recipients: [{ ...RINA, step: 1 }],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('UNKNOWN_FIELD');
+    expect(response.body.error.details.field).toBe('recipients[0].step');
+  });
+
+  it('reports the order mode before the recipient count', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // An empty list AND a bad mode. `order-mode` is the first kernel stage, so
+    // this also proves the mode got past the allow-list to reach a rule.
+    const response = await preview(app, envelopeId, { order_mode: 'nope', recipients: [] });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('ORDER_MODE_INVALID');
+  });
+
+  it('reports a per-recipient failure before the step structure', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [{ ...RINA, signature_count: 0, step: 7 }],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('SIGNATURE_COUNT_INVALID');
+  });
+
+  it('reports a duplicate email before the step structure', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...RINA, step: 1 },
+        { ...RINA, email: 'RINA.HALIM@example.test ', step: 3 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('DUPLICATE_RECIPIENT_EMAIL');
+  });
+
+  it('reports the step structure BEFORE the meterai step placement', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // Steps `[1,3]` is a gap, and the step-3 row also carries a duty stamp.
+    // Which step a carrier is in is meaningless while the steps are malformed.
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...RINA, step: 1 },
+        { ...BUDI, meterai_count: 1, step: 3 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('STEP_SEQUENCE_INVALID');
+    expect(response.body.error.code).not.toBe('METERAI_NOT_IN_FIRST_STEP');
+  });
+
+  it('reports meterai-vs-signature BEFORE the meterai step placement', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // Rina asks for 3 duty stamps on 2 signatures AND sits in step 2. The
+    // per-row rule is §B5's earlier stage.
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...BUDI, step: 1 },
+        { ...RINA, meterai_count: 3, step: 2 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('METERAI_EXCEEDS_SIGNATURE');
+    expect(response.body.error.details.recipient_index).toBe(1);
+  });
+
+  it('reports the meterai step placement BEFORE the signature quota', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // 10 signatures against an allowance of 8, AND Budi carries a duty stamp in
+    // step 2. The placement rule is the earlier stage.
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...RINA, signature_count: 5, step: 1 },
+        { ...BUDI, signature_count: 5, meterai_count: 1, step: 2 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('METERAI_NOT_IN_FIRST_STEP');
+    expect(response.body.error.details.recipient_index).toBe(1);
+  });
+
+  it('reports the meterai step placement BEFORE the meterai quota', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // 4 duty stamps against an allowance of 3, and two of the carriers are in
+    // step 2. Placement comes first, and names the first offending row.
+    const response = await preview(app, envelopeId, {
+      order_mode: 'sequential',
+      recipients: [
+        { ...RINA, meterai_count: 2, step: 1 },
+        { ...BUDI, meterai_count: 1, step: 2 },
+        { ...CITRA, meterai_count: 1, step: 2 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('METERAI_NOT_IN_FIRST_STEP');
+    expect(response.body.error.details.recipient_index).toBe(1);
   });
 });

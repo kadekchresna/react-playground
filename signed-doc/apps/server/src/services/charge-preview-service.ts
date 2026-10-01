@@ -13,25 +13,33 @@
  *   1. payload shape   — strict key allow-list      -> `422 UNKNOWN_FIELD`
  *   2. envelope exists                              -> `404 ENVELOPE_NOT_FOUND`
  *   -- kernel stages, in §B5's order ------------------------------------------
- *   3. `count`                                      -> `422 RECIPIENT_COUNT_INVALID`
- *   4. `per-recipient`, index order, `signature_count`
+ *   3. `order-mode` (§A2)                           -> `422 ORDER_MODE_INVALID`
+ *   4. `count`                                      -> `422 RECIPIENT_COUNT_INVALID`
+ *   5. `per-recipient`, index order, `signature_count`
  *      then `meterai_count` then `name` then `email`-> `422 SIGNATURE_COUNT_INVALID`
  *                                                      / `METERAI_COUNT_INVALID`
  *                                                      / `RECIPIENT_INVALID`
- *   5. `duplicates`, trimmed + case-insensitive     -> `422 DUPLICATE_RECIPIENT_EMAIL`
- *   6. `meterai-vs-signature` (§A3.2)               -> `422 METERAI_EXCEEDS_SIGNATURE`
- *   7. `signature-quota`                            -> `422 INSUFFICIENT_SIGNATURE_QUOTA`
- *   8. `meterai-quota`                              -> `422 INSUFFICIENT_METERAI_QUOTA`
+ *   6. `duplicates`, trimmed + case-insensitive     -> `422 DUPLICATE_RECIPIENT_EMAIL`
+ *   7. `step-structure` (§A2.3)                     -> `422 STEP_SEQUENCE_INVALID`
+ *   8. `meterai-vs-signature` (§A3.2)               -> `422 METERAI_EXCEEDS_SIGNATURE`
+ *   9. `meterai-step-placement` (§A3.3)             -> `422 METERAI_NOT_IN_FIRST_STEP`
+ *  10. `signature-quota`                            -> `422 INSUFFICIENT_SIGNATURE_QUOTA`
+ *  11. `meterai-quota`                              -> `422 INSUFFICIENT_METERAI_QUOTA`
  *
- * Steps 7 and 8 are two stages rather than one branch because §A3.5 requires
+ * Stages 7 and 9 are VACUOUS in `parallel` (§A3.4: parallel is a single step),
+ * so the pipeline's shape does not vary by mode even though its verdicts do.
+ * What does vary by mode is the accepted payload — see `chargePreviewAllowList`.
+ *
+ * Steps 10 and 11 are two stages rather than one branch because §A3.5 requires
  * the two allowances to fail INDEPENDENTLY, with messages that distinguish
  * them. Both are built by the kernel from the allowance this service is
  * injected with — the kernel is told the number, it never sources it (ADR-003).
  *
- * There is deliberately no `if` in this file for any of steps 3-8. A hand-rolled
- * quota check here would be a second place the §B5 order lives, and the two
- * would drift the first time a stage is inserted between them (P2's step rules
- * and P3's reconciliation both belong in the middle of that list).
+ * There is deliberately no `if` in this file for any of steps 3-11. A
+ * hand-rolled quota check here would be a second place the §B5 order lives, and
+ * the two would drift the first time a stage is inserted between them — P2's
+ * step rules landed in the MIDDLE of that list (7 and 9, not appended), and
+ * P3's reconciliation belongs between 9 and 10.
  *
  * The order is asserted by construction in the route suite — a request that
  * violates two rules at once must fail on the earlier one.
@@ -50,6 +58,8 @@ import {
   chargePreviewStages,
   computeCharges,
   formatDecimalString,
+  groupByStep,
+  orderModeOf,
   quotaRemaining,
   validateRecipientList,
   validationFailure,
@@ -75,28 +85,40 @@ export interface RequestAllowList {
 /**
  * Seam S4: the allow-list is a FUNCTION of the request, not a module constant.
  *
- * Through P1 there is still one accepted shape, so this ignores its argument
- * and returns the same list every time — the behaviour is identical to a
- * constant. The shape is what matters: P2's `step`, legal in `sequential` and
- * `UNKNOWN_FIELD` in `parallel` (§B4, §B7.9), becomes a branch inside this
- * function, with no change to the stage that consumes it and no change to any
- * caller.
+ * P2 is what the seam was built for, and it pays off here: `step` is legal in
+ * `sequential` and `UNKNOWN_FIELD` in `parallel` (§B4, §B7.9), so the accepted
+ * SHAPE now depends on a value inside the body. That is one branch inside this
+ * function — no change to the stage that consumes the list, and no change to
+ * any caller.
  *
- * `meterai_count` joins the recipient list for Case 2 (§B4). Note that nothing
- * about this is a type error: the allow-list is strings, so forgetting this one
- * line would compile cleanly and reject every Case-2 payload with
- * `UNKNOWN_FIELD`. The route suite pins it.
+ * Two deliberate asymmetries:
  *
- * `step` is still absent, and stays absent until P2 ships: an allow-list entry
- * with no rule behind it would quietly accept a key the server does nothing
- * with. The Case-1 test that sends `step` and expects `UNKNOWN_FIELD` is the
- * guard on that.
+ * - `order_mode` is accepted UNCONDITIONALLY. A malformed mode must reach the
+ *   `order-mode` stage and come back as `ORDER_MODE_INVALID`; making the key's
+ *   acceptance depend on its own value would mask every typo as `UNKNOWN_FIELD`
+ *   and tell the client to delete a field §B4 requires.
+ * - `step` is accepted only when the mode is exactly `"sequential"`. Absent,
+ *   `"parallel"` and anything malformed all mean "no steps here" — §A3.4 makes
+ *   parallel a single step, so a `step` in that payload is a key the server has
+ *   no rule for, and §B7.9 requires it to be refused rather than ignored. A
+ *   malformed mode therefore reports the surplus `step` first; §B5 puts payload
+ *   shape ahead of `order_mode`, and the route suite pins that too.
+ *
+ * `meterai_count` joined the recipient list for Case 2 (§B4). Note that nothing
+ * about any of this is a type error: the allow-list is strings, so forgetting a
+ * single entry would compile cleanly and reject every Case-2 payload with
+ * `UNKNOWN_FIELD`. The route suite pins each one.
  */
 export type AllowListFor = (body: Readonly<Record<string, unknown>>) => RequestAllowList;
 
-export const chargePreviewAllowList: AllowListFor = () => ({
-  root: ['recipients'],
-  recipient: ['name', 'email', 'signature_count', 'meterai_count'],
+const RECIPIENT_KEYS = ['name', 'email', 'signature_count', 'meterai_count'] as const;
+
+export const chargePreviewAllowList: AllowListFor = (body) => ({
+  root: ['order_mode', 'recipients'],
+  recipient:
+    orderModeOf(body['order_mode']) === 'sequential'
+      ? [...RECIPIENT_KEYS, 'step']
+      : [...RECIPIENT_KEYS],
 });
 
 export interface ChargePreviewService {
@@ -165,14 +187,27 @@ export function createChargePreviewService({
         throw notFound(validationFailure('ENVELOPE_NOT_FOUND', 'Envelope not found'));
       }
 
-      // 3-8. The whole of §B5 from the recipient list on, as one short-
-      //      circuiting stage list (`LD-24`, seam S3). The account's allowances
-      //      are handed to the kernel here; the kernel never sources them.
+      // 3-11. The whole of §B5 from `order_mode` on, as one short-circuiting
+      //       stage list (`LD-24`, seam S3). The account's allowances are handed
+      //       to the kernel here; the kernel never sources them.
+      //
+      //       The mode goes in RAW, not resolved: judging it is the `order-mode`
+      //       stage's job, and a resolved `OrderMode` could never be invalid.
+      //       Passing the quota alone would compile cleanly and silently make
+      //       every request `parallel`, which is to say: it would turn all three
+      //       P2 rules into dead code.
       const recipients = isPlainObject(body) ? body['recipients'] : undefined;
-      const failure = validateRecipientList(recipients, chargePreviewStages(account.quotas));
+      const rawOrderMode = isPlainObject(body) ? body['order_mode'] : undefined;
+      const failure = validateRecipientList(
+        recipients,
+        chargePreviewStages(account.quotas, rawOrderMode),
+      );
       if (failure) throw unprocessable(failure);
 
       const list = recipients as readonly RecipientInput[];
+      // Past the `order-mode` stage the raw value is known to be a mode or
+      // absent, so resolving it here can only produce what the client asked for.
+      const orderMode = orderModeOf(rawOrderMode);
 
       // Exact `bigint` arithmetic throughout; the only float-free path there is.
       // Nothing below can fail — every rule has already run — so this is pure
@@ -184,6 +219,12 @@ export function createChargePreviewService({
       );
 
       return {
+        // §B4. Echoed back RESOLVED and always accompanied by `steps`, so a
+        // client never has to infer the default or branch on the mode to learn
+        // who signs with whom: in `parallel` the projection is the single group
+        // §A3.4 says a parallel document is.
+        order_mode: orderMode,
+        steps: groupByStep(list, orderMode),
         recipient_count: list.length,
         total_signatures: breakdown.totalSignatures,
         total_meterai: breakdown.totalMeterai,

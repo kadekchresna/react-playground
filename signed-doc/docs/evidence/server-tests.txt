@@ -205,3 +205,195 @@ $ curl -s -X POST http://localhost:3001/api/envelopes -F "file=@agreement-vendor
 # meterai_count sent as the string "2"
 {"error":{"code":"METERAI_COUNT_INVALID","message":"meterai_count must be an integer between 0 and 3","details":{"recipient_index":0}}}
 # [422]
+
+
+================================================================================
+CASE 2 — P2 signing order (test_2_en.md §A2, §A3.3/§A3.4, §B4, §B5, §B7 rows
+5-9). Both captures above are retained verbatim; everything below is the
+post-change run. Case-1 and P1 rows are inside it, unchanged and still green.
+================================================================================
+
+$ pnpm --filter @signed-doc/server exec tsc --noEmit
+# captured 2026-10-01T08:15:39Z on node v24.19.0 / pnpm 12.6.0
+# exit=0 (no output means no diagnostics)
+
+$ pnpm --filter @signed-doc/server test --reporter=verbose
+# captured 2026-10-01T08:15:41Z on node v24.19.0 / pnpm 12.6.0
+# 81 tests before P2, 109 after: 28 added, 0 removed, 0 weakened.
+$ vitest run --passWithNoTests --reporter=verbose
+
+ RUN  v3.2.7 /Users/kuro/project/react/react-playground/signed-doc/apps/server
+
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > refuses a request with no file at all 1ms
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > accepts the fixture document and reports its fixture page count 2ms
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > reads the page count from the fixture table, not from the bytes 0ms
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > judges the extension from the sanitized filename, never from a MIME type 0ms
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > sanitizes before it judges: a traversal path becomes a bare basename 0ms
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > stores an HTML-looking filename verbatim, because escaping is the renderer’s job 0ms
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > rejects a name that sanitizes to nothing usable 0ms
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > enforces the size limit it was injected with, not one it sources itself 0ms
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > keeps metadata only — the bytes are discarded after validation 0ms
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > sources price and quota server-side and ignores anything the client sent 0ms
+ ✓ src/__tests__/envelope-service.test.ts > createEnvelopeService.createFromUpload > issues sequential envelope ids 0ms
+ ✓ src/__tests__/app.test.ts > createApp > is drivable in-process with no port bound 16ms
+ ✓ src/__tests__/app.test.ts > createApp > emits exactly one structured log line per request 3ms
+ ✓ src/__tests__/app.test.ts > createApp > logs the error code that was actually sent 8ms
+ ✓ src/__tests__/app.test.ts > createApp > never logs a filename, an email address or a request body 5ms
+ ✓ src/__tests__/app.test.ts > createApp > is silent by default under the test runner, so suite output stays clean 1ms
+ ✓ src/__tests__/app.test.ts > createApp > keeps the JSON body parser off the multipart route 1ms
+ ✓ src/__tests__/app.test.ts > createApp > gives each app instance its own store 11ms
+ ✓ src/__tests__/app.test.ts > createApp > does not advertise the server stack 3ms
+ ✓ src/__tests__/envelopes.route.test.ts > GET /api/health > answers so the README run instructions are checkable in one curl 15ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > accepts agreement-vendor-2026.pdf with the fixture page count 10ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > rejects .exe even when the client swears it is a PDF 2ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > rejects a double extension: the LAST one decides 2ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > stores ../../etc/passwd.pdf as a bare basename with no path component 2ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > returns an HTML-looking filename verbatim as a basename 1ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > rejects a request carrying no file at all 2ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > rejects a payload over the 25 MB limit on the SERVER, as 422 not 413 42ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > refuses a second file part at the parser (files: 1) 3ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > refuses a smuggled text field at the parser (fields: 0) 2ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > never leaks an internal error to the client 1ms
+ ✓ src/__tests__/envelopes.route.test.ts > POST /api/envelopes > keeps envelopes addressable for the preview endpoint 5ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the authoritative total > Rina (2) + Budi (1) totals 3 signatures, "15000.00", 5 left 29ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the authoritative total > is exact at the quota boundary: 8 of 8 is allowed and leaves 0 3ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the authoritative total > consumes no quota — Case 1 never changes it (LD-18) 8ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses 9 signatures against a quota of 8 5ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses a trimmed, case-variant duplicate email and names the rows 7ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses a signature_count that is zero, without ever clamping it 3ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses a signature_count that is negative, without ever clamping it 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses a signature_count that is fractional, without ever clamping it 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses a signature_count that is non-numeric text, without ever clamping it 3ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses a signature_count that is null, without ever clamping it 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses a signature_count that is missing, without ever clamping it 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses a signature_count that is numeric string, without ever clamping it 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses a signature_count that is above the maximum, without ever clamping it 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses an empty name and an unparseable email 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > refuses an empty recipient list and one of eleven 4ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — rejections > returns 404 for an envelope that does not exist 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the strict key allow-list > refuses a client-supplied total_charge and names the offending key 3ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the strict key allow-list > refuses a client-supplied quota and names the offending key 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the strict key allow-list > refuses a client-supplied price and names the offending key 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the strict key allow-list > refuses a client-supplied total_signatures and names the offending key 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the strict key allow-list > refuses an unknown key inside a recipient and gives its path 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the strict key allow-list > refuses a prototype-pollution key like any other unknown key 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the strict key allow-list > answers malformed JSON in the standard envelope, not an HTML error page 5ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the strict key allow-list > refuses a JSON body past the 64 KB ceiling 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the fixed validation order > reports the payload shape before the missing envelope 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the fixed validation order > reports the missing envelope before any recipient rule 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the fixed validation order > reports the recipient count before a per-recipient failure 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the fixed validation order > reports signature_count before name, and name before email 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the fixed validation order > reports a per-recipient failure before a duplicate email 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the fixed validation order > reports a duplicate email before the quota 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — the fixed validation order > refuses a body with no recipients array at all 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > §B7.1 — Rina 2 sig/1 met + Budi 1 sig/0 met totals "25000.10", 5 and 2 left 3ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > §B7.2 — 3 meterai against a quota of 3 is ALLOWED and totals "45000.30" 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > §B7.3 — a fourth meterai is refused, and the message names eMeterai 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > §B7.4 — 3 meterai on a 2-signature row names that row, not the form 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > allows meterai_count equal to signature_count — the boundary, not the failure 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > refuses a meterai_count that is negative, without ever clamping it 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > refuses a meterai_count that is above the maximum, without ever clamping it 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > refuses a meterai_count that is fractional, without ever clamping it 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > refuses a meterai_count that is a numeric string, without ever clamping it 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > refuses a meterai_count that is null, without ever clamping it 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > refuses a meterai_count that is boolean, without ever clamping it 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > treats an ABSENT meterai_count as the documented default of 0 (§B1) 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1) > accepts meterai_count as a known key, while step stays UNKNOWN_FIELD here 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with meterai > reports a malformed meterai_count before the per-row comparison 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with meterai > reports a duplicate email before the per-row meterai comparison 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with meterai > reports meterai-vs-signature BEFORE the signature quota 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with meterai > reports meterai-vs-signature BEFORE the meterai quota 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with meterai > reports the signature quota BEFORE the meterai quota 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with meterai > reports the meterai quota once the signature quota is satisfied 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > §B7.5 — sequential with Rina 1, Budi 2, Citra 2 gives 2 steps, the second shared 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > orders the steps ascending and normalizes their emails 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > echoes parallel and one group, whether the mode is sent or left out 3ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > §B7.6 — Citra carrying eMeterai in step 2 is refused and named 3ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > allows eMeterai in step 1 — the rule is about step 2 and later 3ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > §A3.4 — the placement rule does not bind in parallel 3ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > §B7.7 — steps sent as [1,3] are refused as a gap 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > §B7.7 — steps sent as [2,3] are refused as a gap 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > §B7.7 — steps sent as [0,1] are refused, and the zero row is named 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > refuses a sequential step that is missing, without ever coercing it 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > refuses a sequential step that is a numeric string, without ever coercing it 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > refuses a sequential step that is fractional, without ever coercing it 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > refuses a sequential step that is null, without ever coercing it 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > §B7.9 — a parallel payload carrying step is UNKNOWN_FIELD 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > refuses an order_mode that is a near miss in case with ORDER_MODE_INVALID 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > refuses an order_mode that is a plausible synonym with ORDER_MODE_INVALID 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > refuses an order_mode that is empty with ORDER_MODE_INVALID 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > refuses an order_mode that is null with ORDER_MODE_INVALID 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > refuses an order_mode that is a number with ORDER_MODE_INVALID 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — signing order (§A2, P2) > refuses an order_mode that is an object with ORDER_MODE_INVALID 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with signing order > reports the payload shape before the order mode 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with signing order > reports the order mode before the recipient count 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with signing order > reports a per-recipient failure before the step structure 3ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with signing order > reports a duplicate email before the step structure 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with signing order > reports the step structure BEFORE the meterai step placement 2ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with signing order > reports meterai-vs-signature BEFORE the meterai step placement 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with signing order > reports the meterai step placement BEFORE the signature quota 1ms
+ ✓ src/__tests__/charge-preview.route.test.ts > POST /api/envelopes/:id/charge-preview — §B5 order, with signing order > reports the meterai step placement BEFORE the meterai quota 1ms
+
+ Test Files  4 passed (4)
+      Tests  109 passed (109)
+   Start at  16:15:41
+   Duration  645ms (transform 200ms, setup 0ms, collect 737ms, tests 327ms, environment 0ms, prepare 233ms)
+
+
+--------------------------------------------------------------------------------
+Negative controls. Three one-line edits that TYPECHECK CLEANLY and silently
+undo P2; each was applied, the suite run, and the edit reverted. Proof that the
+new tests fail for the right reason rather than passing by construction.
+--------------------------------------------------------------------------------
+
+# M1: chargePreviewStages(account.quotas) — the raw mode dropped (compiles clean)
+      Tests  18 failed | 91 passed (109)
+# M2: allow-list without 'step' in sequential (compiles clean)
+      Tests  17 failed | 92 passed (109)
+# M3: allow-list without 'order_mode' at root (compiles clean)
+      Tests  28 failed | 81 passed (109)
+
+--------------------------------------------------------------------------------
+Live HTTP round trip against a real listening server (not supertest), captured
+2026-10-01T08:17Z. `tsx src/index.ts` with PORT=3101; curl transcript. Each
+response is the raw body, followed by the status code.
+--------------------------------------------------------------------------------
+
+$ curl -s -X POST http://localhost:3101/api/envelopes -F "file=@agreement-vendor-2026.pdf;type=application/pdf"
+{"envelope_id":"env_01","document":{"filename":"agreement-vendor-2026.pdf","size_bytes":3,"page_count":8},"price":{"signature":"5000.00","meterai":"10000.10"},"quota":{"signature":8,"meterai":3}}
+
+# §B7.5 — sequential; Rina step 1, Budi step 2, Citra step 2
+{"order_mode":"sequential","steps":[{"step":1,"recipient_emails":["rina.halim@example.test"]},{"step":2,"recipient_emails":["budi.santoso@example.test","citra.dewi@example.test"]}],"recipient_count":3,"total_signatures":4,"total_meterai":0,"price":{"signature":"5000.00","meterai":"10000.10"},"charges":{"signature":"20000.00","meterai":"0.00"},"total_charge":"20000.00","quota":{"signature":8,"meterai":3},"quota_remaining":{"signature":4,"meterai":3}}
+# [200] two steps; step 2 holds two emails (§A2.2)
+
+# §B7.6 — the same shape with Citra carrying 1 eMeterai
+{"error":{"code":"METERAI_NOT_IN_FIRST_STEP","message":"citra.dewi@example.test carries eMeterai but is in step 2 - a duty stamp is affixed before the signing chain starts, so only step 1 may carry eMeterai","details":{"recipient_index":2,"recipient_email":"citra.dewi@example.test"}}}
+# [422]
+
+# §B7.7 — steps [1,3]
+{"error":{"code":"STEP_SEQUENCE_INVALID","message":"Step numbers must be contiguous starting at 1 - got 1, 3"}}
+# [422]
+
+# §B7.7 — steps [2,3]
+{"error":{"code":"STEP_SEQUENCE_INVALID","message":"Step numbers must be contiguous starting at 1 - got 2, 3"}}
+# [422]
+
+# §B7.7 — steps [0,1]
+{"error":{"code":"STEP_SEQUENCE_INVALID","message":"step must be a whole number of 1 or more","details":{"recipient_index":0}}}
+# [422] one row IS at fault here, so one row is named
+
+# §B7.9 — order_mode "parallel" with a step on a recipient
+{"error":{"code":"UNKNOWN_FIELD","message":"Unknown field is not accepted","details":{"field":"recipients[0].step"}}}
+# [422]
+
+# a malformed order_mode ("Parallel") reaches the rule, not the allow-list
+{"error":{"code":"ORDER_MODE_INVALID","message":"order_mode must be \"parallel\" or \"sequential\""}}
+# [422] and NOT UNKNOWN_FIELD
+
+# §B7.1 unchanged — no order_mode at all means parallel, one group, same money
+{"order_mode":"parallel","steps":[{"step":1,"recipient_emails":["rina.halim@example.test","budi.santoso@example.test"]}],"recipient_count":2,"total_signatures":3,"total_meterai":1,"price":{"signature":"5000.00","meterai":"10000.10"},"charges":{"signature":"15000.00","meterai":"10000.10"},"total_charge":"25000.10","quota":{"signature":8,"meterai":3},"quota_remaining":{"signature":5,"meterai":2}}
+# [200] "25000.10" and 5/2 remaining, byte-identical to the P1 capture above
+
+# §B5 order — a step-2 eMeterai carrier AND 10 signatures against a quota of 8
+{"error":{"code":"METERAI_NOT_IN_FIRST_STEP","message":"budi.santoso@example.test carries eMeterai but is in step 2 - a duty stamp is affixed before the signing chain starts, so only step 1 may carry eMeterai","details":{"recipient_index":1,"recipient_email":"budi.santoso@example.test"}}}
+# [422] placement is stage 9, the signature quota stage 10
