@@ -62,24 +62,31 @@ export {
   type SanitizedFilename,
 } from './file.js';
 
-// Recipient rules — the one shared validation module (PRD §8.5).
+// Recipient rules — the one shared validation module (PRD §8.5, Case 2 §A3).
 export {
+  MAX_METERAI_COUNT,
   MAX_RECIPIENTS,
   MAX_SIGNATURE_COUNT,
+  MIN_METERAI_COUNT,
   MIN_RECIPIENTS,
   MIN_SIGNATURE_COUNT,
   RECIPIENT_LIST_STAGES,
+  clampMeteraiCount,
   clampSignatureCount,
   findDuplicateEmailGroups,
+  isValidMeteraiCount,
   isValidSignatureCount,
+  meteraiCountOf,
+  meteraiWithinSignatures,
   normalizeEmail,
   runRecipientStages,
+  signatureCountOf,
   validateRecipient,
   validateRecipientList,
   type RecipientListStage,
 } from './recipient.js';
 
-// Derived totals — pure, component-free (PRD §8.6).
+// Derived totals — pure, component-free (PRD §8.6, Case 2 §A3.6/§A3.7).
 export {
   computeCharges,
   quotaRemaining,
@@ -92,6 +99,14 @@ export {
   type QuotaTable,
   type QuotaUsage,
 } from './pricing.js';
+
+// Quota stages — the only rules that are TOLD an allowance (ADR-003, §B5).
+export {
+  chargePreviewStages,
+  meteraiQuotaStage,
+  quotaStages,
+  signatureQuotaStage,
+} from './quota.js';
 
 // Page count — fixture table, never file content (PRD §4 fact 3, §6).
 export { DEFAULT_PAGE_COUNT, pageCountFor } from './page-count.js';

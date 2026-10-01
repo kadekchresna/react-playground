@@ -10,7 +10,9 @@
  * 1. `clampSignatureCount` (frontend) repairs input so state can never hold
  *    `NaN`/`undefined` (PRD §8.3); `isValidSignatureCount` (backend) refuses it
  *    without coercion. A single "helpful" function would let a hostile client
- *    have `"abc"` quietly corrected instead of rejected.
+ *    have `"abc"` quietly corrected instead of rejected. Case 2's eMeterai
+ *    stepper repeats the pair exactly — `clampMeteraiCount` /
+ *    `isValidMeteraiCount` — rather than inventing a third convention.
  * 2. `validateRecipientList` is an ordered array of named stages that
  *    short-circuits on the first failure (seam S3), not an `if` chain. The
  *    order IS the contract (PRD §9), so it is data, and it is asserted in the
@@ -29,32 +31,55 @@ export const MIN_SIGNATURE_COUNT = 1;
 export const MAX_SIGNATURE_COUNT = 20;
 
 /**
+ * `test_2_en.md` §B1: `meterai_count` per recipient is an integer `0`-`3`.
+ *
+ * This is a VALIDATION RULE, which is why it lives here beside
+ * `MIN/MAX_SIGNATURE_COUNT`. The meterai PRICE and the account's meterai QUOTA
+ * are commercial terms and are nowhere in this package (ADR-003) — that the
+ * quota happens to also be `3` is a coincidence of the fixture, not a shared
+ * constant: one bounds a single row, the other bounds a whole document.
+ */
+export const MIN_METERAI_COUNT = 0;
+export const MAX_METERAI_COUNT = 3;
+
+/**
  * Backend rule: an integer 1..20 and nothing else. No coercion, so `"3"`,
  * `true` and `{ valueOf: () => 2 }` are all false.
  */
 export function isValidSignatureCount(raw: unknown): boolean {
-  return (
-    typeof raw === 'number' &&
-    Number.isInteger(raw) &&
-    raw >= MIN_SIGNATURE_COUNT &&
-    raw <= MAX_SIGNATURE_COUNT
-  );
+  return isIntegerWithin(raw, MIN_SIGNATURE_COUNT, MAX_SIGNATURE_COUNT);
+}
+
+/**
+ * Backend rule for e-meterai: an integer 0..3 and nothing else (§B1).
+ *
+ * Strict in exactly the way `isValidSignatureCount` is — `undefined` is NOT
+ * valid here. Absence is handled one level up, by `meteraiCountOf` and by
+ * `validateRecipient`, which apply §B1's documented default of `0`.
+ */
+export function isValidMeteraiCount(raw: unknown): boolean {
+  return isIntegerWithin(raw, MIN_METERAI_COUNT, MAX_METERAI_COUNT);
+}
+
+function isIntegerWithin(raw: unknown, min: number, max: number): boolean {
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= min && raw <= max;
 }
 
 /** Whole, optionally signed, no decimal point — what a number input can emit. */
 const INTEGER_TEXT = /^[+-]?\d+$/;
 
 /**
- * Frontend rule: always returns a usable integer in 1..20 (PRD §8.3).
+ * The one coercion shared by both steppers: always returns a usable integer in
+ * `min..max` (PRD §8.3).
  *
  * - An integer outside the range is CLAMPED to the nearest bound.
  * - Anything that is not an integer (mid-typing `""`, `"abc"`, `2.5`, `null`)
  *   leaves the committed value alone by returning `previous`.
- * - A corrupted `previous` is itself repaired, so the result is never `NaN`
- *   or `undefined` no matter how the caller got into that state.
+ * - A corrupted `previous` is itself repaired to `min`, so the result is never
+ *   `NaN` or `undefined` no matter how the caller got into that state.
  */
-export function clampSignatureCount(raw: unknown, previous: number): number {
-  const fallback = isValidSignatureCount(previous) ? previous : MIN_SIGNATURE_COUNT;
+function clampCount(raw: unknown, previous: unknown, min: number, max: number): number {
+  const fallback = isIntegerWithin(previous, min, max) ? (previous as number) : min;
 
   let candidate: number;
   if (typeof raw === 'number') {
@@ -66,9 +91,59 @@ export function clampSignatureCount(raw: unknown, previous: number): number {
   }
 
   if (!Number.isInteger(candidate)) return fallback;
-  if (candidate < MIN_SIGNATURE_COUNT) return MIN_SIGNATURE_COUNT;
-  if (candidate > MAX_SIGNATURE_COUNT) return MAX_SIGNATURE_COUNT;
+  if (candidate < min) return min;
+  if (candidate > max) return max;
   return candidate;
+}
+
+/** Frontend rule: always returns a usable integer in 1..20 (PRD §8.3). */
+export function clampSignatureCount(raw: unknown, previous: number): number {
+  return clampCount(raw, previous, MIN_SIGNATURE_COUNT, MAX_SIGNATURE_COUNT);
+}
+
+/**
+ * Frontend rule for the eMeterai stepper: always an integer in 0..3 (§A3, §B1).
+ *
+ * Deliberately NOT clamped against the row's `signature_count`. §A3.2 is a rule
+ * the user must be told about (§B7.4 marks that row and the server answers
+ * `422 METERAI_EXCEEDS_SIGNATURE`); a stepper that silently capped itself would
+ * make that state unreachable and the rule invisible.
+ */
+export function clampMeteraiCount(raw: unknown, previous: number): number {
+  return clampCount(raw, previous, MIN_METERAI_COUNT, MAX_METERAI_COUNT);
+}
+
+/**
+ * A row's signature count as arithmetic can use it.
+ *
+ * The frontend recomputes totals on every keystroke, so a row can be mid-edit
+ * and invalid. Such a row contributes 0 instead of poisoning a total with
+ * `NaN`; the row is separately marked invalid by `validateRecipient`, and the
+ * server refuses the request outright.
+ */
+export function signatureCountOf(r: RecipientInput): number {
+  const count = (r as Partial<RecipientInput> | null)?.signature_count;
+  return isValidSignatureCount(count) ? (count as number) : 0;
+}
+
+/**
+ * A row's meterai count as arithmetic can use it.
+ *
+ * Same contract as `signatureCountOf`, plus §B1's default: an ABSENT
+ * `meterai_count` is `0`, which is also what an invalid one contributes.
+ */
+export function meteraiCountOf(r: RecipientInput): number {
+  const count = (r as Partial<RecipientInput> | null)?.meterai_count;
+  return isValidMeteraiCount(count) ? (count as number) : 0;
+}
+
+/**
+ * §A3.2 — one duty stamp sits next to one signature, so a recipient may carry
+ * at most as many meterai as they have signatures. Equality is legal; it is the
+ * boundary, not the failure.
+ */
+export function meteraiWithinSignatures(r: RecipientInput): boolean {
+  return meteraiCountOf(r) <= signatureCountOf(r);
 }
 
 /** Trim + lowercase. The only comparison form for emails (PRD §8.4). */
@@ -98,8 +173,15 @@ function isValidEmail(raw: unknown): boolean {
 }
 
 /**
- * One recipient, checked in the fixed order signature_count -> name -> email
- * (LD-24). First failure wins, so the response names one cause, not a list.
+ * One recipient, checked in the fixed order
+ * signature_count -> meterai_count -> name -> email (LD-24, extended for Case 2).
+ * First failure wins, so the response names one cause, not a list.
+ *
+ * The two counts are checked before the identity fields because they are the
+ * pair the §A3 rules are about, and because `signature_count` already held that
+ * position in Case 1. Note what is NOT checked here: whether `meterai_count`
+ * exceeds `signature_count`. §B5 puts that comparison after duplicate emails,
+ * so it is its own stage.
  */
 export function validateRecipient(r: RecipientInput, index: number): ValidationFailure | null {
   const candidate: Partial<RecipientInput> =
@@ -109,6 +191,16 @@ export function validateRecipient(r: RecipientInput, index: number): ValidationF
     return validationFailure(
       'SIGNATURE_COUNT_INVALID',
       `signature_count must be an integer between ${MIN_SIGNATURE_COUNT} and ${MAX_SIGNATURE_COUNT}`,
+      { recipient_index: index },
+    );
+  }
+
+  // §B1: absent means the default of 0. Present means it must be well-formed —
+  // `null`, `"2"` and `4` are mistakes, not defaults, and are refused.
+  if (candidate.meterai_count !== undefined && !isValidMeteraiCount(candidate.meterai_count)) {
+    return validationFailure(
+      'METERAI_COUNT_INVALID',
+      `meterai_count must be an integer between ${MIN_METERAI_COUNT} and ${MAX_METERAI_COUNT}`,
       { recipient_index: index },
     );
   }
@@ -202,11 +294,47 @@ const duplicateStage: RecipientListStage = {
   },
 };
 
-/** Case 1 registers three stages. Case 2 inserts more; the runner never changes. */
+/**
+ * §A3.2 / §B5 — compared only once every row is individually valid and no two
+ * rows collide, so the failure the user sees is the deepest true one.
+ *
+ * Reports the FIRST offending row by index and names it in
+ * `details.recipient_index`: §B7.4 requires the frontend to mark that row, not
+ * the whole form.
+ */
+const meteraiVsSignatureStage: RecipientListStage = {
+  name: 'meterai-vs-signature',
+  run: (recipients) => {
+    for (let index = 0; index < recipients.length; index += 1) {
+      const r = recipients[index] as RecipientInput;
+      if (!meteraiWithinSignatures(r)) {
+        return validationFailure(
+          'METERAI_EXCEEDS_SIGNATURE',
+          `${meteraiCountOf(r)} eMeterai is more than the ${signatureCountOf(r)} signatures ` +
+            'this recipient has - one duty stamp sits next to one signature',
+          { recipient_index: index },
+        );
+      }
+    }
+    return null;
+  },
+};
+
+/**
+ * The stages that need no parameter, in §B5's order.
+ *
+ * Case 1 registered three; Case 2 INSERTS `meterai-vs-signature` after
+ * duplicates — an entry in this array, never an edit to the runner (seam S3).
+ * The two quota stages are absent here on purpose: they need the account's
+ * allowance, which this package is never allowed to know (ADR-003), so they are
+ * built by `quota.ts` and appended by the caller. `chargePreviewStages` composes
+ * the full §B5 P1 order.
+ */
 export const RECIPIENT_LIST_STAGES: readonly RecipientListStage[] = [
   countStage,
   perRecipientStage,
   duplicateStage,
+  meteraiVsSignatureStage,
 ];
 
 /** Run a stage list, short-circuiting on the first failure. */
@@ -222,13 +350,21 @@ export function runRecipientStages(
 }
 
 /**
- * Validate a whole recipient list: count -> per-recipient -> duplicates.
+ * Validate a whole recipient list against a stage list.
+ *
+ * Defaults to the parameter-free stages (count -> per-recipient -> duplicates
+ * -> meterai-vs-signature). A caller that knows the account's allowance passes
+ * `chargePreviewStages(quota)` instead, which appends the two quota stages in
+ * §B5's order.
  *
  * Takes `unknown` because the server hands it a parsed request body. A payload
  * that is not an array fails the same way an empty one does — there is no list
  * to count.
  */
-export function validateRecipientList(rs: unknown): ValidationFailure | null {
+export function validateRecipientList(
+  rs: unknown,
+  stages: readonly RecipientListStage[] = RECIPIENT_LIST_STAGES,
+): ValidationFailure | null {
   if (!Array.isArray(rs)) return recipientCountInvalid();
-  return runRecipientStages(rs as readonly RecipientInput[]);
+  return runRecipientStages(rs as readonly RecipientInput[], stages);
 }

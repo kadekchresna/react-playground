@@ -25,7 +25,16 @@ import {
 import type { RecipientInput } from '../types.js';
 
 function recipient(over: Partial<RecipientInput> = {}): RecipientInput {
-  return { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2, ...over };
+  return {
+    name: 'Rina Halim',
+    email: 'rina.halim@example.test',
+    signature_count: 2,
+    // Case 2 §B1: `meterai_count` is an integer 0-3, default 0. Every Case-1
+    // expectation in this file is about the OTHER fields and must be unchanged
+    // by its presence, which is exactly what the default value here asserts.
+    meterai_count: 0,
+    ...over,
+  };
 }
 
 function failureOf(result: ValidationFailure | null): ValidationFailure {
@@ -226,11 +235,16 @@ describe('findDuplicateEmailGroups (PRD §8.4, §10)', () => {
 });
 
 describe('validateRecipientList — ordered stage pipeline (seam S3, LD-24)', () => {
-  it('registers exactly the Case 1 stages, in order', () => {
+  it('registers the parameter-free stages, in order', () => {
+    // Case 1 registered three. Case 2 §B5 INSERTS `meterai-vs-signature` after
+    // duplicates — an entry in the array, not an edit to the runner (seam S3).
+    // The two quota stages need the account's allowance and so are supplied by
+    // the caller; `quota.test.ts` asserts the full §B5 order.
     expect(RECIPIENT_LIST_STAGES.map((stage) => stage.name)).toEqual([
       'count',
       'per-recipient',
       'duplicates',
+      'meterai-vs-signature',
     ]);
   });
 

@@ -16,28 +16,42 @@ import type { ErrorCode, ValidationFailureDetails } from './errors.js';
 export type Money = string;
 
 /**
- * Per-resource price table. One key in Case 1 (seam S2) — it is a record rather
- * than a scalar so a second priced line is an added key, not a signature change.
+ * Per-resource price table. Seam S2 paid off here: Case 2's second priced line
+ * (`test_2_en.md` §A3.6) is an added key, not a signature change on every
+ * caller. The values themselves still live only on the server (ADR-003).
  */
 export interface PriceRecord {
   readonly signature: Money;
+  readonly meterai: Money;
 }
 
-/** Per-resource allowance, in units of that resource. */
+/** Per-resource allowance, in units of that resource. Independent per §A3.5. */
 export interface QuotaRecord {
   readonly signature: number;
+  readonly meterai: number;
 }
 
-/** Per-resource money lines making up a total. */
+/** Per-resource money lines making up a total (§A3.7 shows them separately). */
 export interface ChargeRecord {
   readonly signature: Money;
+  readonly meterai: Money;
 }
 
-/** One recipient exactly as it crosses the wire. */
+/**
+ * One recipient exactly as it crosses the wire.
+ *
+ * `meterai_count` is an integer 0-3 (§B1) that may not exceed this recipient's
+ * `signature_count` (§A3.2). It is REQUIRED in the type because every producer
+ * in this system sets it; at runtime an absent value is read as the documented
+ * default of `0` rather than rejected, so a payload written before Case 2 still
+ * means what it meant. A present-but-malformed value is `METERAI_COUNT_INVALID`
+ * — absence is a default, `null` or `"2"` is a mistake.
+ */
 export interface RecipientInput {
   name: string;
   email: string;
   signature_count: number;
+  meterai_count: number;
 }
 
 /** A recipient row as the UI holds it: wire fields plus a stable local id. */
@@ -75,6 +89,8 @@ export interface ChargePreviewRequest {
 export interface ChargePreviewResponse {
   readonly recipient_count: number;
   readonly total_signatures: number;
+  /** `test_2_en.md` §B4. Counted the same way `total_signatures` is. */
+  readonly total_meterai: number;
   readonly price: PriceRecord;
   readonly charges: ChargeRecord;
   readonly total_charge: Money;

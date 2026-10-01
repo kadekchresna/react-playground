@@ -1,10 +1,20 @@
 /**
  * The error vocabulary shared by both layers.
  *
- * Every rejection the system can emit is one of these 11 codes. The frontend
+ * Every rejection the system can emit is one of these 14 codes. The frontend
  * branches on `code`, never on `message`, so messages stay free to change while
  * behaviour does not. `details` is additive and optional (LD-26): it carries
  * enough to mark the offending row, and nothing else.
+ *
+ * Case 2 adds the three e-meterai codes (`test_2_en.md` §B5, priority P1). The
+ * remaining Case-2 codes — the signing-order ones (P2), the field-placement
+ * ones (P3) and the two `409`s (P4) — are deliberately ABSENT: this list is
+ * "every rejection the system can emit", so a code without a rule behind it
+ * would be a lie the frontend could branch on.
+ *
+ * `INSUFFICIENT_SIGNATURE_QUOTA` and `INSUFFICIENT_METERAI_QUOTA` are separate
+ * codes on purpose (§A3.5): the two quotas are independent, and a client must
+ * be able to tell which one it ran out of without parsing a message.
  */
 
 export type ErrorCode =
@@ -19,6 +29,10 @@ export type ErrorCode =
   | 'RECIPIENT_INVALID'
   | 'DUPLICATE_RECIPIENT_EMAIL'
   | 'INSUFFICIENT_SIGNATURE_QUOTA'
+  // E-meterai (`test_2_en.md` §A3, §B5 — Case 2 P1)
+  | 'METERAI_COUNT_INVALID'
+  | 'METERAI_EXCEEDS_SIGNATURE'
+  | 'INSUFFICIENT_METERAI_QUOTA'
   // Request-level (PRD §9)
   | 'UNKNOWN_FIELD'
   | 'ENVELOPE_NOT_FOUND';
@@ -34,6 +48,9 @@ export const ERROR_CODES = [
   'RECIPIENT_INVALID',
   'DUPLICATE_RECIPIENT_EMAIL',
   'INSUFFICIENT_SIGNATURE_QUOTA',
+  'METERAI_COUNT_INVALID',
+  'METERAI_EXCEEDS_SIGNATURE',
+  'INSUFFICIENT_METERAI_QUOTA',
   'UNKNOWN_FIELD',
   'ENVELOPE_NOT_FOUND',
 ] as const satisfies readonly ErrorCode[];
