@@ -5,33 +5,49 @@
  * responsive estimate; anything the client sends for price, total or quota is
  * not merely ignored, it is a hard rejection (PRD §9).
  *
- * The validation order is FIXED by PRD §9 and is the contract, not an
- * implementation detail. It is written out as five numbered steps below and
- * asserted by construction in the route suite — a request that violates two
- * rules at once must fail on the earlier one:
+ * The validation order is FIXED — by PRD §9 for Case 1 and by `test_2_en.md`
+ * §B5 for Case 2 — and it is the contract, not an implementation detail. Only
+ * the first two steps are this file's; everything from the recipient list on is
+ * the kernel's stage pipeline (`seam S3`), composed by `chargePreviewStages`:
  *
  *   1. payload shape   — strict key allow-list      -> `422 UNKNOWN_FIELD`
  *   2. envelope exists                              -> `404 ENVELOPE_NOT_FOUND`
- *   3. per-recipient, index order, `signature_count`
- *      then `name` then `email`, first failure wins -> `422 RECIPIENT_COUNT_INVALID`
- *                                                      / `SIGNATURE_COUNT_INVALID`
+ *   -- kernel stages, in §B5's order ------------------------------------------
+ *   3. `count`                                      -> `422 RECIPIENT_COUNT_INVALID`
+ *   4. `per-recipient`, index order, `signature_count`
+ *      then `meterai_count` then `name` then `email`-> `422 SIGNATURE_COUNT_INVALID`
+ *                                                      / `METERAI_COUNT_INVALID`
  *                                                      / `RECIPIENT_INVALID`
- *   4. duplicate emails, trimmed + case-insensitive -> `422 DUPLICATE_RECIPIENT_EMAIL`
- *   5. quota                                        -> `422 INSUFFICIENT_SIGNATURE_QUOTA`
+ *   5. `duplicates`, trimmed + case-insensitive     -> `422 DUPLICATE_RECIPIENT_EMAIL`
+ *   6. `meterai-vs-signature` (§A3.2)               -> `422 METERAI_EXCEEDS_SIGNATURE`
+ *   7. `signature-quota`                            -> `422 INSUFFICIENT_SIGNATURE_QUOTA`
+ *   8. `meterai-quota`                              -> `422 INSUFFICIENT_METERAI_QUOTA`
  *
- * Steps 3 and 4 are the shared kernel's own stage pipeline (`seam S3`), so the
- * frontend marks exactly the rows the server would refuse.
+ * Steps 7 and 8 are two stages rather than one branch because §A3.5 requires
+ * the two allowances to fail INDEPENDENTLY, with messages that distinguish
+ * them. Both are built by the kernel from the allowance this service is
+ * injected with — the kernel is told the number, it never sources it (ADR-003).
+ *
+ * There is deliberately no `if` in this file for any of steps 3-8. A hand-rolled
+ * quota check here would be a second place the §B5 order lives, and the two
+ * would drift the first time a stage is inserted between them (P2's step rules
+ * and P3's reconciliation both belong in the middle of that list).
+ *
+ * The order is asserted by construction in the route suite — a request that
+ * violates two rules at once must fail on the earlier one.
  *
  * Stateless with respect to recipients (`LD-20`): nothing is written, so the
  * call is idempotent and safe from two tabs at once. It consumes no quota —
- * Case 1 never changes quota (`LD-18`), `quota_remaining` is computed per call.
+ * a preview never changes quota (`LD-18`), both `quota_remaining` figures are
+ * computed per call.
  *
- * `signature_count` is judged by the kernel's STRICT predicate. The kernel's
- * coercing counterpart is a frontend affordance and is deliberately absent from
- * this package: a hostile `"abc"` must be refused, never quietly repaired.
+ * Both counts are judged by the kernel's STRICT predicates. The kernel's
+ * coercing counterparts are frontend affordances and are deliberately absent
+ * from this package: a hostile `"abc"` must be refused, never quietly repaired.
  */
 
 import {
+  chargePreviewStages,
   computeCharges,
   formatDecimalString,
   quotaRemaining,
@@ -59,17 +75,28 @@ export interface RequestAllowList {
 /**
  * Seam S4: the allow-list is a FUNCTION of the request, not a module constant.
  *
- * Case 1 has one accepted shape, so this ignores its argument and returns the
- * same list every time — the behaviour is identical to a constant. The shape is
- * what matters: a later mode in which a key is legal in one mode and rejected
- * in another becomes a branch inside this function, with no change to the stage
- * that consumes it and no change to any caller.
+ * Through P1 there is still one accepted shape, so this ignores its argument
+ * and returns the same list every time — the behaviour is identical to a
+ * constant. The shape is what matters: P2's `step`, legal in `sequential` and
+ * `UNKNOWN_FIELD` in `parallel` (§B4, §B7.9), becomes a branch inside this
+ * function, with no change to the stage that consumes it and no change to any
+ * caller.
+ *
+ * `meterai_count` joins the recipient list for Case 2 (§B4). Note that nothing
+ * about this is a type error: the allow-list is strings, so forgetting this one
+ * line would compile cleanly and reject every Case-2 payload with
+ * `UNKNOWN_FIELD`. The route suite pins it.
+ *
+ * `step` is still absent, and stays absent until P2 ships: an allow-list entry
+ * with no rule behind it would quietly accept a key the server does nothing
+ * with. The Case-1 test that sends `step` and expects `UNKNOWN_FIELD` is the
+ * guard on that.
  */
 export type AllowListFor = (body: Readonly<Record<string, unknown>>) => RequestAllowList;
 
 export const chargePreviewAllowList: AllowListFor = () => ({
   root: ['recipients'],
-  recipient: ['name', 'email', 'signature_count'],
+  recipient: ['name', 'email', 'signature_count', 'meterai_count'],
 });
 
 export interface ChargePreviewService {
@@ -138,37 +165,43 @@ export function createChargePreviewService({
         throw notFound(validationFailure('ENVELOPE_NOT_FOUND', 'Envelope not found'));
       }
 
-      // 3 + 4. Count, then per-recipient in index order, then duplicates —
-      //        short-circuiting on the first failure (`LD-24`, seam S3).
+      // 3-8. The whole of §B5 from the recipient list on, as one short-
+      //      circuiting stage list (`LD-24`, seam S3). The account's allowances
+      //      are handed to the kernel here; the kernel never sources them.
       const recipients = isPlainObject(body) ? body['recipients'] : undefined;
-      const failure = validateRecipientList(recipients);
+      const failure = validateRecipientList(recipients, chargePreviewStages(account.quotas));
       if (failure) throw unprocessable(failure);
 
       const list = recipients as readonly RecipientInput[];
 
       // Exact `bigint` arithmetic throughout; the only float-free path there is.
+      // Nothing below can fail — every rule has already run — so this is pure
+      // projection onto the wire shape of §B4.
       const breakdown = computeCharges(list, account.prices);
-      const balance = quotaRemaining({ signature: breakdown.totalSignatures }, account.quotas);
-
-      // 5. Quota. Last, so an over-quota list with a bad email reports the email.
-      if (balance.signature.overBy > 0) {
-        throw unprocessable(
-          validationFailure(
-            'INSUFFICIENT_SIGNATURE_QUOTA',
-            `${breakdown.totalSignatures} of ${account.quotas.signature} signatures - ` +
-              `${balance.signature.overBy} over your quota`,
-          ),
-        );
-      }
+      const balance = quotaRemaining(
+        { signature: breakdown.totalSignatures, meterai: breakdown.totalMeterai },
+        account.quotas,
+      );
 
       return {
         recipient_count: list.length,
         total_signatures: breakdown.totalSignatures,
-        price: { signature: formatDecimalString(account.prices.signature) },
-        charges: { signature: formatDecimalString(breakdown.charges.signature) },
+        total_meterai: breakdown.totalMeterai,
+        price: {
+          signature: formatDecimalString(account.prices.signature),
+          meterai: formatDecimalString(account.prices.meterai),
+        },
+        // Two priced lines, summed independently and shown separately (§A3.7).
+        charges: {
+          signature: formatDecimalString(breakdown.charges.signature),
+          meterai: formatDecimalString(breakdown.charges.meterai),
+        },
         total_charge: formatDecimalString(breakdown.totalChargeMinor),
-        quota: { signature: account.quotas.signature },
-        quota_remaining: { signature: balance.signature.remaining },
+        quota: { signature: account.quotas.signature, meterai: account.quotas.meterai },
+        quota_remaining: {
+          signature: balance.signature.remaining,
+          meterai: balance.meterai.remaining,
+        },
       };
     },
   };

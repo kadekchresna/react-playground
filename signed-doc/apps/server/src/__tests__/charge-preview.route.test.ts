@@ -3,9 +3,15 @@
  * (PRD §10 rows 6-11, `docs/prompt.md` §7 criteria 6-11).
  *
  * This is the densest acceptance coverage in the repo and the place the fixed
- * five-stage validation order is actually proven. Order is asserted BY
+ * validation order is actually proven — Case 1's five stages, and Case 2's
+ * extension of them (`test_2_en.md` §B5, P1). Order is asserted BY
  * CONSTRUCTION, not by reading the source: each ordering test sends a request
  * that violates two rules at once and pins which one is reported.
+ *
+ * Every Case-1 expectation below is still here and still exact. Where Case 2
+ * widened a response body the fixture gained a `meterai` key and NOT a changed
+ * value — §B7.21 assesses Case-1 regressions, so a Case-1 figure moving would
+ * be the bug, not the fix.
  *
  * Fixture emails are `@example.test` throughout — no real personal data
  * anywhere in the repository (PRD §5).
@@ -22,10 +28,12 @@ interface RecipientPayload {
   name?: unknown;
   email?: unknown;
   signature_count?: unknown;
+  meterai_count?: unknown;
 }
 
 const RINA = { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2 };
 const BUDI = { name: 'Budi Santoso', email: 'budi.santoso@example.test', signature_count: 1 };
+const CITRA = { name: 'Citra Dewi', email: 'citra.dewi@example.test', signature_count: 1 };
 
 /** Upload a document so there is a real envelope id to preview against. */
 async function appWithEnvelope(): Promise<{ app: Express; envelopeId: string }> {
@@ -62,11 +70,15 @@ describe('POST /api/envelopes/:id/charge-preview — the authoritative total', (
     expect(response.body).toEqual({
       recipient_count: 2,
       total_signatures: 3,
-      price: { signature: '5000.00' },
-      charges: { signature: '15000.00' },
+      // Case 2 §B4 widened the body. Neither recipient asks for a duty stamp,
+      // so every Case-1 figure below is unchanged: the meterai line is 0 and
+      // contributes nothing to the total.
+      total_meterai: 0,
+      price: { signature: '5000.00', meterai: '10000.10' },
+      charges: { signature: '15000.00', meterai: '0.00' },
       total_charge: '15000.00',
-      quota: { signature: 8 },
-      quota_remaining: { signature: 5 },
+      quota: { signature: 8, meterai: 3 },
+      quota_remaining: { signature: 5, meterai: 3 },
     });
 
     // Every monetary value is a decimal string on the wire, never a JSON number
@@ -87,7 +99,7 @@ describe('POST /api/envelopes/:id/charge-preview — the authoritative total', (
     expect(response.status).toBe(200);
     expect(response.body.total_signatures).toBe(8);
     expect(response.body.total_charge).toBe('40000.00');
-    expect(response.body.quota_remaining).toEqual({ signature: 0 });
+    expect(response.body.quota_remaining).toEqual({ signature: 0, meterai: 3 });
   });
 
   it('consumes no quota — Case 1 never changes it (LD-18)', async () => {
@@ -98,7 +110,7 @@ describe('POST /api/envelopes/:id/charge-preview — the authoritative total', (
     const second = await preview(app, envelopeId, body);
 
     expect(second.body).toEqual(first.body);
-    expect(second.body.quota_remaining).toEqual({ signature: 5 });
+    expect(second.body.quota_remaining).toEqual({ signature: 5, meterai: 3 });
   });
 });
 
@@ -350,5 +362,263 @@ describe('POST /api/envelopes/:id/charge-preview — the fixed validation order'
 
     expect(response.status).toBe(422);
     expect(response.body.error.code).toBe('RECIPIENT_COUNT_INVALID');
+  });
+});
+
+/**
+ * E-meterai — `test_2_en.md` §A3 / §B1 / §B4, priority P1.
+ *
+ * Every figure below is checked against the brief's own arithmetic rather than
+ * against whatever the implementation happens to produce: `"25000.10"` and
+ * `"45000.30"` (§B7 rows 1-2) are the two totals a float implementation gets
+ * wrong, which is the whole reason §B8.3 names them explicitly.
+ */
+describe('POST /api/envelopes/:id/charge-preview — e-meterai (§A3, P1)', () => {
+  it('§B7.1 — Rina 2 sig/1 met + Budi 1 sig/0 met totals "25000.10", 5 and 2 left', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      recipients: [
+        { ...RINA, meterai_count: 1 },
+        { ...BUDI, meterai_count: 0 },
+      ],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      recipient_count: 2,
+      total_signatures: 3,
+      total_meterai: 1,
+      price: { signature: '5000.00', meterai: '10000.10' },
+      charges: { signature: '15000.00', meterai: '10000.10' },
+      total_charge: '25000.10',
+      quota: { signature: 8, meterai: 3 },
+      quota_remaining: { signature: 5, meterai: 2 },
+    });
+
+    // The two priced lines are separate on the wire (§A3.7), and the combined
+    // total is not a float that happens to round well — it is a decimal string.
+    expect(response.text).toContain('"total_charge":"25000.10"');
+    expect(response.text).not.toMatch(/"total_charge":\s*\d/);
+  });
+
+  it('§B7.2 — 3 meterai against a quota of 3 is ALLOWED and totals "45000.30"', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      recipients: [
+        { ...RINA, meterai_count: 2 },
+        { ...BUDI, meterai_count: 1 },
+      ],
+    });
+
+    // Exactly at the allowance is the boundary, never the failure.
+    expect(response.status).toBe(200);
+    expect(response.body.total_signatures).toBe(3);
+    expect(response.body.total_meterai).toBe(3);
+    expect(response.body.charges).toEqual({ signature: '15000.00', meterai: '30000.30' });
+    expect(response.body.total_charge).toBe('45000.30');
+    expect(response.body.quota_remaining).toEqual({ signature: 5, meterai: 0 });
+  });
+
+  it('§B7.3 — a fourth meterai is refused, and the message names eMeterai', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      recipients: [
+        { ...RINA, meterai_count: 2 },
+        { ...BUDI, meterai_count: 1 },
+        { ...CITRA, meterai_count: 1 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('INSUFFICIENT_METERAI_QUOTA');
+    expect(response.body.error.message).toBe('4 of 3 eMeterai - 1 over your eMeterai quota');
+
+    // §A3.5: the two shortfalls must be distinguishable. The code differs, and
+    // so does every word of the message — this one never says "signatures".
+    expect(response.body.error.code).not.toBe('INSUFFICIENT_SIGNATURE_QUOTA');
+    expect(response.body.error.message).not.toContain('signature');
+    // Four signatures are inside the signature allowance, so nothing but the
+    // meterai allowance was breached.
+    expect(response.body.total_charge).toBeUndefined();
+  });
+
+  it('§B7.4 — 3 meterai on a 2-signature row names that row, not the form', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // Rina is second on purpose: the index must point at the offending row.
+    const response = await preview(app, envelopeId, {
+      recipients: [
+        { ...BUDI, meterai_count: 1 },
+        { ...RINA, meterai_count: 3 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('METERAI_EXCEEDS_SIGNATURE');
+    expect(response.body.error.details.recipient_index).toBe(1);
+    // Not a quota failure: 4 meterai would also bust the allowance of 3, but
+    // §B5 puts the per-row rule first, and it is the truer cause.
+    expect(response.body.error.code).not.toBe('INSUFFICIENT_METERAI_QUOTA');
+  });
+
+  it('allows meterai_count equal to signature_count — the boundary, not the failure', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      recipients: [{ ...BUDI, meterai_count: 1 }],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.total_meterai).toBe(1);
+    expect(response.body.total_charge).toBe('15000.10');
+  });
+
+  it.each([
+    ['negative', -1],
+    ['above the maximum', 4],
+    ['fractional', 2.5],
+    ['a numeric string', '2'],
+    ['null', null],
+    ['boolean', true],
+  ])('refuses a meterai_count that is %s, without ever clamping it', async (_label, value) => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      recipients: [{ ...RINA, meterai_count: value }],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('METERAI_COUNT_INVALID');
+    expect(response.body.error.details.recipient_index).toBe(0);
+    // A clamped value would have produced a 200 with a charge attached.
+    expect(response.body.total_charge).toBeUndefined();
+  });
+
+  it('treats an ABSENT meterai_count as the documented default of 0 (§B1)', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // Byte-for-byte a Case-1 payload. It must still mean what it meant.
+    const response = await preview(app, envelopeId, { recipients: [RINA, BUDI] });
+
+    expect(response.status).toBe(200);
+    expect(response.body.total_meterai).toBe(0);
+    expect(response.body.charges.meterai).toBe('0.00');
+    expect(response.body.total_charge).toBe('15000.00');
+  });
+
+  it('accepts meterai_count as a known key, while step is still UNKNOWN_FIELD', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+
+    const accepted = await preview(app, envelopeId, {
+      recipients: [{ ...RINA, meterai_count: 1 }],
+    });
+    expect(accepted.status).toBe(200);
+
+    // P2 has not shipped, so there is no rule behind `step` and no entry for it
+    // in the allow-list (§B7.9 is a P2 row).
+    const refused = await preview(app, envelopeId, {
+      recipients: [{ ...RINA, meterai_count: 1, step: 1 }],
+    });
+    expect(refused.status).toBe(422);
+    expect(refused.body.error.code).toBe('UNKNOWN_FIELD');
+    expect(refused.body.error.details.field).toBe('recipients[0].step');
+  });
+});
+
+/**
+ * §B5's extended order, asserted the same way Case 1's was: every test here
+ * sends a request that breaks TWO rules at once and pins which one is reported.
+ * Reading the source is not evidence; only the earlier code coming back is.
+ */
+describe('POST /api/envelopes/:id/charge-preview — §B5 order, with meterai', () => {
+  it('reports a malformed meterai_count before the per-row comparison', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // `9` is both out of range (per-recipient) and greater than the row's 2
+    // signatures (meterai-vs-signature). The per-recipient stage is earlier.
+    const response = await preview(app, envelopeId, {
+      recipients: [{ ...RINA, meterai_count: 9 }],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('METERAI_COUNT_INVALID');
+  });
+
+  it('reports a duplicate email before the per-row meterai comparison', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    const response = await preview(app, envelopeId, {
+      recipients: [
+        { ...RINA, email: 'rina.halim@example.test', meterai_count: 0 },
+        { ...RINA, email: 'RINA.HALIM@example.test ', meterai_count: 3 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('DUPLICATE_RECIPIENT_EMAIL');
+  });
+
+  it('reports meterai-vs-signature BEFORE the signature quota', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // 11 signatures against an allowance of 8, AND Citra carries 3 duty stamps
+    // on a single signature. The per-row rule is the earlier stage.
+    const response = await preview(app, envelopeId, {
+      recipients: [
+        { ...RINA, signature_count: 5, meterai_count: 0 },
+        { ...BUDI, signature_count: 5, meterai_count: 0 },
+        { ...CITRA, signature_count: 1, meterai_count: 3 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('METERAI_EXCEEDS_SIGNATURE');
+    expect(response.body.error.details.recipient_index).toBe(2);
+  });
+
+  it('reports meterai-vs-signature BEFORE the meterai quota', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // 5 duty stamps against an allowance of 3, AND Budi carries 2 on one
+    // signature. Both are meterai failures; the per-row one is reported.
+    const response = await preview(app, envelopeId, {
+      recipients: [
+        { ...RINA, meterai_count: 2 },
+        { ...BUDI, signature_count: 1, meterai_count: 2 },
+        { ...CITRA, meterai_count: 1 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('METERAI_EXCEEDS_SIGNATURE');
+    expect(response.body.error.details.recipient_index).toBe(1);
+  });
+
+  it('reports the signature quota BEFORE the meterai quota', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // 9 signatures against 8 and 4 duty stamps against 3 — both allowances are
+    // breached, every row is individually legal, and signatures come first.
+    const response = await preview(app, envelopeId, {
+      recipients: [
+        { ...RINA, signature_count: 3, meterai_count: 3 },
+        { ...BUDI, signature_count: 3, meterai_count: 1 },
+        { ...CITRA, signature_count: 3, meterai_count: 0 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('INSUFFICIENT_SIGNATURE_QUOTA');
+    // Byte-identical to Case 1's message, though the check now lives in the
+    // kernel rather than in the service (§B7.21).
+    expect(response.body.error.message).toBe('9 of 8 signatures - 1 over your quota');
+  });
+
+  it('reports the meterai quota once the signature quota is satisfied', async () => {
+    const { app, envelopeId } = await appWithEnvelope();
+    // The same list with one signature removed from each row: 6 signatures is
+    // inside the allowance, so the next stage — the meterai quota — reports.
+    const response = await preview(app, envelopeId, {
+      recipients: [
+        { ...RINA, signature_count: 2, meterai_count: 2 },
+        { ...BUDI, signature_count: 2, meterai_count: 2 },
+        { ...CITRA, signature_count: 2, meterai_count: 0 },
+      ],
+    });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('INSUFFICIENT_METERAI_QUOTA');
+    expect(response.body.error.message).toBe('4 of 3 eMeterai - 1 over your eMeterai quota');
   });
 });

@@ -91,8 +91,11 @@ export function createEnvelopeService({
         page_count: pageCountFor(meta.filename),
       });
 
-      // `price` and `quota` are sourced here, server-side. Nothing the client
-      // sent is read for either (PRD §9, ADR-003).
+      // `price` and `quota` are sourced here, server-side, and now carry both
+      // priced resources (§B1). Nothing the client sent is read for either
+      // (PRD §9, ADR-003) — this is the browser's only route to either number,
+      // which is why the meterai figures have to arrive on the `201` as well as
+      // on every preview.
       return {
         envelope_id: record.id,
         document: {
@@ -100,8 +103,11 @@ export function createEnvelopeService({
           size_bytes: record.size_bytes,
           page_count: record.page_count,
         },
-        price: { signature: formatDecimalString(account.prices.signature) },
-        quota: { signature: account.quotas.signature },
+        price: {
+          signature: formatDecimalString(account.prices.signature),
+          meterai: formatDecimalString(account.prices.meterai),
+        },
+        quota: { signature: account.quotas.signature, meterai: account.quotas.meterai },
       };
     },
   };

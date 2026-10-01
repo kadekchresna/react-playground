@@ -186,9 +186,12 @@ describe('createEnvelopeService.createFromUpload', () => {
     // (`fields: 0`), but the service also takes no such parameter: the only
     // sources are `ACCOUNT.prices` and `ACCOUNT.quotas` (ADR-003, PRD §9).
     const created = service.createFromUpload(upload('nda-partner.pdf'));
-    expect(created.price).toEqual({ signature: '5000.00' });
-    expect(created.quota).toEqual({ signature: 8 });
+    expect(created.price).toEqual({ signature: '5000.00', meterai: '10000.10' });
+    expect(created.quota).toEqual({ signature: 8, meterai: 3 });
     expect(typeof created.price.signature).toBe('string');
+    // The e-meterai price is the fixture that would expose a float (§B1): it
+    // crosses the wire as a decimal string like every other money value.
+    expect(typeof created.price.meterai).toBe('string');
   });
 
   it('issues sequential envelope ids', () => {

@@ -65,11 +65,15 @@ describe('POST /api/envelopes', () => {
         size_bytes: 1_468_006,
         page_count: 8,
       },
-      price: { signature: '5000.00' },
-      quota: { signature: 8 },
+      // Case 2 §B1 adds the second priced resource. The Case-1 figures are
+      // byte-identical — a new key, not a changed value.
+      price: { signature: '5000.00', meterai: '10000.10' },
+      quota: { signature: 8, meterai: 3 },
     });
     // Money crosses the wire as a decimal string, never a JSON number (PRD §6).
     expect(response.text).toContain('"signature":"5000.00"');
+    expect(response.text).toContain('"meterai":"10000.10"');
+    expect(response.text).not.toMatch(/"meterai":\s*1000[01]/);
   });
 
   it('rejects .exe even when the client swears it is a PDF', async () => {
