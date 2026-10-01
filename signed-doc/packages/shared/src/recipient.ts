@@ -263,7 +263,22 @@ function recipientCountInvalid(): ValidationFailure {
   );
 }
 
-const countStage: RecipientListStage = {
+/**
+ * The four parameter-free stages are exported individually as well as inside
+ * `RECIPIENT_LIST_STAGES`.
+ *
+ * Case 2's §B5 does not merely APPEND to Case 1's order, it INTERLEAVES:
+ * `step-structure` lands between `duplicates` and `meterai-vs-signature`, and
+ * `meterai-step-placement` right after it. A composer that could only spread
+ * `RECIPIENT_LIST_STAGES` would have to slice it by index or by name to do
+ * that, and either would be a second, fragile statement of the order. Naming
+ * the pieces lets `chargePreviewStages` write §B5 out as one array literal.
+ *
+ * `RECIPIENT_LIST_STAGES` keeps its Case-1 meaning unchanged: the stages that
+ * need no parameter, in their own relative order, and the default for a caller
+ * that knows nothing about mode or allowance.
+ */
+export const countStage: RecipientListStage = {
   name: 'count',
   run: (recipients) =>
     recipients.length < MIN_RECIPIENTS || recipients.length > MAX_RECIPIENTS
@@ -271,7 +286,7 @@ const countStage: RecipientListStage = {
       : null,
 };
 
-const perRecipientStage: RecipientListStage = {
+export const perRecipientStage: RecipientListStage = {
   name: 'per-recipient',
   run: (recipients) => {
     for (let index = 0; index < recipients.length; index += 1) {
@@ -282,7 +297,7 @@ const perRecipientStage: RecipientListStage = {
   },
 };
 
-const duplicateStage: RecipientListStage = {
+export const duplicateStage: RecipientListStage = {
   name: 'duplicates',
   run: (recipients) => {
     const [first] = findDuplicateEmailGroups(recipients);
@@ -302,7 +317,7 @@ const duplicateStage: RecipientListStage = {
  * `details.recipient_index`: §B7.4 requires the frontend to mark that row, not
  * the whole form.
  */
-const meteraiVsSignatureStage: RecipientListStage = {
+export const meteraiVsSignatureStage: RecipientListStage = {
   name: 'meterai-vs-signature',
   run: (recipients) => {
     for (let index = 0; index < recipients.length; index += 1) {

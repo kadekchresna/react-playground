@@ -36,10 +36,12 @@ export type {
   EnvelopeCreatedResponse,
   EnvelopeMeta,
   Money,
+  OrderMode,
   PriceRecord,
   QuotaRecord,
   Recipient,
   RecipientInput,
+  StepGroup,
 } from './types.js';
 
 // Money — bigint minor units; the only decimal-string conversion points (ADR-006).
@@ -73,18 +75,41 @@ export {
   RECIPIENT_LIST_STAGES,
   clampMeteraiCount,
   clampSignatureCount,
+  countStage,
+  duplicateStage,
   findDuplicateEmailGroups,
   isValidMeteraiCount,
   isValidSignatureCount,
   meteraiCountOf,
+  meteraiVsSignatureStage,
   meteraiWithinSignatures,
   normalizeEmail,
+  perRecipientStage,
   runRecipientStages,
   signatureCountOf,
   validateRecipient,
   validateRecipientList,
   type RecipientListStage,
 } from './recipient.js';
+
+// Signing order — mode, steps, renormalization and the §B4 projection (§A2, P2).
+export {
+  DEFAULT_ORDER_MODE,
+  FIRST_STEP,
+  ORDER_MODES,
+  groupByStep,
+  isOrderMode,
+  isValidStep,
+  meteraiStepPlacementStage,
+  orderModeOf,
+  orderModeStage,
+  renormalizeSteps,
+  stepOf,
+  stepStructureStage,
+  validateMeteraiStepPlacement,
+  validateOrderMode,
+  validateStepSequence,
+} from './steps.js';
 
 // Derived totals — pure, component-free (PRD §8.6, Case 2 §A3.6/§A3.7).
 export {

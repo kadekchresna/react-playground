@@ -52,15 +52,41 @@ function check(recipients: readonly RecipientInput[], quota = QUOTA): Validation
 }
 
 describe('the §B5 validation order is data, not an if-chain (seam S3)', () => {
+  /**
+   * P2 INSERTED three stages into this array — `order-mode` at the head, and
+   * the two step rules around `meterai-vs-signature` — exactly where §B5 puts
+   * them. Nothing P1 registered was renamed, removed or reordered: the six
+   * names below still appear in the same relative order they did, which is the
+   * property this assertion has always been about.
+   */
   it('registers the P1 stages in exactly the brief’s order', () => {
     expect(chargePreviewStages(QUOTA).map((stage) => stage.name)).toEqual([
+      'order-mode',
+      'count',
+      'per-recipient',
+      'duplicates',
+      'step-structure',
+      'meterai-vs-signature',
+      'meterai-step-placement',
+      'signature-quota',
+      'meterai-quota',
+    ]);
+  });
+
+  it('keeps the P1 stages in their P1 relative order', () => {
+    const p1 = [
       'count',
       'per-recipient',
       'duplicates',
       'meterai-vs-signature',
       'signature-quota',
       'meterai-quota',
-    ]);
+    ];
+    expect(
+      chargePreviewStages(QUOTA)
+        .map((stage) => stage.name)
+        .filter((name) => p1.includes(name)),
+    ).toEqual(p1);
   });
 
   it('exposes the two quota stages separately, signature first', () => {

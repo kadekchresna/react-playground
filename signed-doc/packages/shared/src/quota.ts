@@ -23,11 +23,21 @@
 import { validationFailure } from './errors.js';
 import { quotaRemaining, type QuotaTable } from './pricing.js';
 import {
-  RECIPIENT_LIST_STAGES,
+  countStage,
+  duplicateStage,
   meteraiCountOf,
+  meteraiVsSignatureStage,
+  perRecipientStage,
   signatureCountOf,
   type RecipientListStage,
 } from './recipient.js';
+import {
+  DEFAULT_ORDER_MODE,
+  meteraiStepPlacementStage,
+  orderModeOf,
+  orderModeStage,
+  stepStructureStage,
+} from './steps.js';
 import type { RecipientInput } from './types.js';
 
 /** What a list asks for, totalled the same lenient way pricing totals it. */
@@ -93,20 +103,42 @@ export function quotaStages(quota: QuotaTable): readonly RecipientListStage[] {
 }
 
 /**
- * The complete P1 validation order of §B5, as data:
+ * The complete P1+P2 validation order of §B5, as data:
  *
- *   count -> per recipient -> duplicate emails -> meterai-vs-signature
+ *   order_mode -> count -> per recipient -> duplicate emails -> step structure
+ *   -> meterai-vs-signature -> meterai step placement
  *   -> signature quota -> meterai quota
  *
- * `RECIPIENT_LIST_STAGES` supplies the prefix that needs no allowance; this
- * function appends the two that do. The steps §B5 lists before them — payload
- * shape and envelope existence — are the server's, because only the server has
- * a request and a store; the kernel owns everything from the recipient list on.
+ * One array literal, read top to bottom, is the whole §B5 contract from the
+ * recipient list on. The steps §B5 lists before `order_mode` — payload shape and
+ * envelope existence — are the server's, because only the server has a request
+ * and a store. P3's field stages belong between `meterai-step-placement` and
+ * `signature-quota`; adding them is an insertion into this array.
  *
- * The P2/P3 stages (`order_mode`, step structure, meterai step placement, field
- * shape and reconciliation) belong between these entries when they are built;
- * adding them is an insertion into this array.
+ * `order_mode` takes the RAW value off the request, not an `OrderMode`, because
+ * judging it is the stage's job (`ORDER_MODE_INVALID`). It defaults to
+ * `parallel`, so a Case-1 caller that passes only the quota gets exactly the
+ * behaviour it had: both step stages are vacuous in `parallel` (§A3.4), which
+ * is why the pipeline's SHAPE does not vary by mode even though its verdicts do.
+ * One registered order, asserted once.
+ *
+ * Only `order_mode` and the two quota stages are parameterized. Everything else
+ * is a module constant, so inserting a rule here can never change what an
+ * existing stage decides.
  */
-export function chargePreviewStages(quota: QuotaTable): readonly RecipientListStage[] {
-  return [...RECIPIENT_LIST_STAGES, ...quotaStages(quota)];
+export function chargePreviewStages(
+  quota: QuotaTable,
+  orderMode: unknown = DEFAULT_ORDER_MODE,
+): readonly RecipientListStage[] {
+  const mode = orderModeOf(orderMode);
+  return [
+    orderModeStage(orderMode),
+    countStage,
+    perRecipientStage,
+    duplicateStage,
+    stepStructureStage(mode),
+    meteraiVsSignatureStage,
+    meteraiStepPlacementStage(mode),
+    ...quotaStages(quota),
+  ];
 }

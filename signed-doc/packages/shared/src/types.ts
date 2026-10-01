@@ -16,6 +16,28 @@ import type { ErrorCode, ValidationFailureDetails } from './errors.js';
 export type Money = string;
 
 /**
+ * `test_2_en.md` §A2 — how the recipients are invited.
+ *
+ * `parallel` is the default and is exactly the Case-1 behaviour: everyone is
+ * invited at once. `sequential` groups them into steps, and the next step is
+ * only invited once every recipient in the previous one is done.
+ */
+export type OrderMode = 'parallel' | 'sequential';
+
+/**
+ * One entry of §B4's `steps` projection: a step number and the recipients
+ * invited together in it. Several recipients sharing a step is the normal case,
+ * not an edge one (§A2.2) — within a step they sign in parallel.
+ *
+ * Emails are normalized (trimmed, lowercased), the same form every other
+ * comparison in this kernel uses.
+ */
+export interface StepGroup {
+  readonly step: number;
+  readonly recipient_emails: readonly string[];
+}
+
+/**
  * Per-resource price table. Seam S2 paid off here: Case 2's second priced line
  * (`test_2_en.md` §A3.6) is an added key, not a signature change on every
  * caller. The values themselves still live only on the server (ADR-003).
@@ -46,12 +68,20 @@ export interface ChargeRecord {
  * default of `0` rather than rejected, so a payload written before Case 2 still
  * means what it meant. A present-but-malformed value is `METERAI_COUNT_INVALID`
  * — absence is a default, `null` or `"2"` is a mistake.
+ *
+ * `step` is OPTIONAL because its presence is a function of the mode (§A2.1,
+ * §B4): in `sequential` every recipient has one, an integer >= 1; in `parallel`
+ * it must not be sent at all, and a payload that sends one is rejected with
+ * `UNKNOWN_FIELD` by the server's request allow-list rather than by a rule in
+ * the kernel. Optionality is therefore the honest type — a required `step`
+ * would make the legal parallel payload unexpressible.
  */
 export interface RecipientInput {
   name: string;
   email: string;
   signature_count: number;
   meterai_count: number;
+  step?: number;
 }
 
 /** A recipient row as the UI holds it: wire fields plus a stable local id. */
@@ -82,11 +112,25 @@ export interface EnvelopeCreatedResponse {
  * than ignored (PRD §9).
  */
 export interface ChargePreviewRequest {
+  /**
+   * §B4. Optional on the wire: a body without it means `parallel`, which is
+   * what every Case-1 payload meant. Present-but-outside the two modes is
+   * `ORDER_MODE_INVALID`, never a silent fallback.
+   */
+  order_mode?: OrderMode;
   recipients: RecipientInput[];
 }
 
 /** `200` body of `POST /api/envelopes/:id/charge-preview`. The server's total is final. */
 export interface ChargePreviewResponse {
+  /** §B4. Echoed back resolved, so the client never has to infer the default. */
+  readonly order_mode: OrderMode;
+  /**
+   * §B4. Always present, in both modes: in `parallel` it is the single group
+   * §A3.4 says a parallel document is, so a consumer has one shape to render
+   * rather than two.
+   */
+  readonly steps: readonly StepGroup[];
   readonly recipient_count: number;
   readonly total_signatures: number;
   /** `test_2_en.md` §B4. Counted the same way `total_signatures` is. */
