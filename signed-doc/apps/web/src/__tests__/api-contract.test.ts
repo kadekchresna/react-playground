@@ -7,8 +7,8 @@
  * 1. `formatIdr` renders the wire string as `Rp15.000,00` and never touches a
  *    float (PRD §4 fact 1, LD-11).
  * 2. The `charge-preview` body carries exactly `recipients -> name, email,
- *    signature_count`. If a price, total or quota key ever appears, this fails
- *    (ADR-003, PRD §9).
+ *    signature_count, meterai_count` (`test_2_en.md` §B4). If a price, total or
+ *    quota key ever appears, this fails (ADR-003, PRD §9).
  * 3. `request` normalizes every failure into one shape, distinguishes a timeout
  *    from a caller cancellation, and retries nothing (LD-28, LD-29).
  */
@@ -74,27 +74,59 @@ describe('formatBytes', () => {
 });
 
 describe('charge-preview request body (ADR-003, PRD §9)', () => {
+  // §B7 row 1's list: Rina 2 signatures + 1 eMeterai, Budi 1 signature.
   const rows = [
-    { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2 },
-    { name: 'Budi Santoso', email: 'budi.santoso@example.test', signature_count: 1 },
+    { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2, meterai_count: 1 },
+    { name: 'Budi Santoso', email: 'budi.santoso@example.test', signature_count: 1, meterai_count: 0 },
   ];
 
   it('carries exactly one top-level key', () => {
     expect(Object.keys(buildChargePreviewBody(rows))).toEqual(['recipients']);
   });
 
-  it('carries exactly three keys per recipient — no price, total or quota', () => {
+  it('carries exactly four keys per recipient — no price, total or quota', () => {
     for (const recipient of buildChargePreviewBody(rows).recipients) {
-      expect(Object.keys(recipient).sort()).toEqual(['email', 'name', 'signature_count']);
+      expect(Object.keys(recipient).sort()).toEqual([
+        'email',
+        'meterai_count',
+        'name',
+        'signature_count',
+      ]);
+    }
+  });
+
+  it('carries meterai_count through unrepaired, so §B7 row 4\'s 422 stays reachable', () => {
+    // 3 meterai against 2 signatures is exactly §B7 row 4. The client must send
+    // it as typed; silently correcting it here would hide the rule.
+    const overStamped = [
+      { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2, meterai_count: 3 },
+    ];
+    expect(buildChargePreviewBody(overStamped).recipients[0]?.meterai_count).toBe(3);
+  });
+
+  it('sends no P2/P3 key — no order_mode, no step, no fields', () => {
+    const serialized = JSON.stringify(buildChargePreviewBody(rows));
+    for (const forbidden of ['order_mode', 'step', 'fields']) {
+      expect(serialized).not.toContain(forbidden);
     }
   });
 
   it('drops local-only fields such as the row id and the in-progress count text', () => {
     const withLocals = [
-      { id: 'r1', countRaw: '2', name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2 },
+      {
+        id: 'r1',
+        countRaw: '2',
+        meteraiRaw: '1',
+        name: 'Rina Halim',
+        email: 'rina.halim@example.test',
+        signature_count: 2,
+        meterai_count: 1,
+      },
     ];
     expect(buildChargePreviewBody(withLocals)).toEqual({
-      recipients: [{ name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2 }],
+      recipients: [
+        { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2, meterai_count: 1 },
+      ],
     });
   });
 

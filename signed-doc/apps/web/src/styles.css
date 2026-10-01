@@ -378,7 +378,8 @@ button {
 
 .signer-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 170px 118px 44px;
+  /* name · email · Signatures · eMeterai (§A3.6) · Charge · remove */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 132px 132px 118px 44px;
   gap: 12px;
   align-items: start;
 }
@@ -409,12 +410,20 @@ input[aria-invalid='true'] {
 .count-stepper {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .count-stepper input {
-  width: 62px;
+  width: 48px;
+  padding: 9px 4px;
   text-align: center;
+}
+
+/* §A3.2's reason belongs to the row, under its own stepper — not to the form. */
+.count-stepper .field-error {
+  flex-basis: 100%;
+  margin-top: 0;
 }
 
 .charge-cell {
@@ -461,6 +470,39 @@ input[aria-invalid='true'] {
   justify-content: space-between;
   gap: 16px;
   padding: 4px 0;
+}
+
+.summary__head {
+  align-items: baseline;
+  padding-bottom: 6px;
+}
+
+.summary__head h2 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.summary__amount {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* §A3.8 — both usages at once, each chip naming its own resource. */
+.quota-chip {
+  display: inline-block;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quota-chip--over {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .summary__total {

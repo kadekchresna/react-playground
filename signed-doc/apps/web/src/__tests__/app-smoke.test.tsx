@@ -24,8 +24,9 @@ function envelope(filename: string, pageCount: number) {
   return {
     envelope_id: 'env_01',
     document: { filename, size_bytes: 1_468_006, page_count: pageCount },
-    price: { signature: '5000.00' },
-    quota: { signature: 8 },
+    // §B1: both prices and both allowances, server-issued (ADR-003).
+    price: { signature: '5000.00', meterai: '10000.10' },
+    quota: { signature: 8, meterai: 3 },
   };
 }
 
@@ -274,6 +275,182 @@ describe('Step 2 derived totals (PRD §8.6, §8.7, §10 row 6)', () => {
   });
 });
 
+/**
+ * Case 2 §A3 (P1) — the eMeterai column, on screen and wired.
+ *
+ * The arithmetic itself lives in `meterai.test.ts`, where it is asserted
+ * without a DOM. What is proved here is the wiring: that the column exists,
+ * that its stepper reaches the reducer, that the per-row cell shows the
+ * COMBINED cost, that both quota usages are visible at once, and that the two
+ * shortfalls read as two different problems.
+ */
+describe('Step 2 eMeterai column (§A3.6–§A3.9)', () => {
+  /**
+   * Anchored on purpose: the `-` and `+` buttons beside the box are labelled
+   * `Fewer/More eMeterai for {who}`, so an unanchored pattern would match three
+   * controls. That it does is itself the §A3.6 accessibility contract holding.
+   */
+  const meteraiBox = (who: string) =>
+    screen.getByLabelText(new RegExp(`^eMeterai for ${who}$`)) as HTMLInputElement;
+
+  it('renders an eMeterai stepper per row, seeded at 0 and separately labelled', async () => {
+    await reachStepTwo();
+
+    expect(screen.getByText('eMeterai')).toBeTruthy(); // the column header
+    expect(meteraiBox('Rina Halim').value).toBe('0');
+    expect(meteraiBox('Budi Santoso').value).toBe('0');
+
+    // The signature stepper is still its own control — two steppers, not one.
+    expect((screen.getByLabelText(/Signatures for Rina Halim/) as HTMLInputElement).value).toBe('2');
+    expect(screen.getByRole('button', { name: 'More eMeterai for Rina Halim' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Fewer eMeterai for Rina Halim' })).toBeTruthy();
+  });
+
+  it('§B7 row 1 — one duty stamp changes the row charge, both lines and the total', async () => {
+    await reachStepTwo();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More eMeterai for Rina Halim' }));
+
+    // §A3.7: two separate priced lines, then the total.
+    expect(screen.getByText('3 signatures × Rp5.000,00 per signature')).toBeTruthy();
+    expect(screen.getByText('1 eMeterai × Rp10.000,10 per eMeterai')).toBeTruthy();
+    expect(screen.getByText('= Rp15.000,00')).toBeTruthy();
+    expect(screen.getByText('= Rp10.000,10')).toBeTruthy();
+    expect(screen.getByText('Rp25.000,10')).toBeTruthy(); // the total
+
+    // §A3.6: Rina's cell is her COMBINED cost, 2 x 5000.00 + 1 x 10000.10.
+    const rina = screen.getByRole('group', { name: 'Recipient 1' });
+    expect(within(rina).getByText('Rp20.000,10')).toBeTruthy();
+    const budi = screen.getByRole('group', { name: 'Recipient 2' });
+    expect(within(budi).getByText('Rp5.000,00')).toBeTruthy();
+
+    // §A3.8: usage against BOTH quotas, each naming its own resource.
+    expect(screen.getByText('Signature 3/8')).toBeTruthy();
+    expect(screen.getByText('eMeterai 1/3')).toBeTruthy();
+    expect(screen.getByText('2 of 3')).toBeTruthy(); // remaining eMeterai
+  });
+
+  it('never lets the eMeterai count become NaN, whatever is typed (§B1)', async () => {
+    await reachStepTwo();
+    const box = meteraiBox('Rina Halim');
+
+    fireEvent.change(box, { target: { value: 'abc' } });
+    expect(screen.getByText('0 eMeterai × Rp10.000,10 per eMeterai')).toBeTruthy();
+
+    fireEvent.change(box, { target: { value: '' } });
+    expect(screen.getByText('0 eMeterai × Rp10.000,10 per eMeterai')).toBeTruthy();
+
+    fireEvent.change(box, { target: { value: '4' } });
+    fireEvent.blur(box);
+    expect(box.value).toBe('3'); // clamped down to §B1's ceiling
+    expect(screen.getByText('3 eMeterai × Rp10.000,10 per eMeterai')).toBeTruthy();
+  });
+
+  it('§B7 row 4 — marks THAT row, not the whole form', async () => {
+    await reachStepTwo();
+
+    // Rina: 2 signatures, 3 duty stamps.
+    fireEvent.change(meteraiBox('Rina Halim'), { target: { value: '3' } });
+
+    const rina = meteraiBox('Rina Halim');
+    const budi = meteraiBox('Budi Santoso');
+    expect(rina.getAttribute('aria-invalid')).toBe('true');
+    expect(budi.getAttribute('aria-invalid')).toBeNull(); // the clean row stays clean
+
+    // The reason sits on the row and names both numbers.
+    const rinaRow = screen.getByRole('group', { name: 'Recipient 1' });
+    expect(
+      within(rinaRow).getByText('3 eMeterai for 2 signatures — one duty stamp per signature'),
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole('group', { name: 'Recipient 2' })).queryByText(/duty stamp/),
+    ).toBeNull();
+
+    const button = continueButton();
+    expect(button.disabled).toBe(true);
+    expect(describedByText(button)).toContain('one duty stamp per signature');
+  });
+
+  it('§A3.2 stays reachable — the stepper does not cap itself at signature_count', async () => {
+    await reachStepTwo();
+
+    fireEvent.change(screen.getByLabelText(/Signatures for Rina Halim/), { target: { value: '1' } });
+    const plus = screen.getByRole('button', { name: 'More eMeterai for Rina Halim' });
+    fireEvent.click(plus);
+    fireEvent.click(plus);
+
+    // 2 duty stamps against 1 signature: an invalid state the user can SEE,
+    // which is the only way the server's 422 is ever provoked.
+    expect(meteraiBox('Rina Halim').value).toBe('2');
+    expect(meteraiBox('Rina Halim').getAttribute('aria-invalid')).toBe('true');
+    expect(
+      screen.getByText('2 eMeterai for 1 signature — one duty stamp per signature'),
+    ).toBeTruthy();
+  });
+
+  it('§A3.5 — a meterai shortfall reads as a meterai shortfall, not a signature one', async () => {
+    await reachStepTwo();
+
+    // 4 duty stamps against an allowance of 3, signatures comfortably inside 8.
+    fireEvent.change(screen.getByLabelText(/Signatures for Rina Halim/), { target: { value: '3' } });
+    fireEvent.change(meteraiBox('Rina Halim'), { target: { value: '3' } });
+    fireEvent.change(meteraiBox('Budi Santoso'), { target: { value: '1' } });
+
+    expect(screen.getAllByText('4 of 3 eMeterai — 1 over your eMeterai quota')).toHaveLength(2);
+    expect(screen.queryByText(/over your quota$/)).toBeNull(); // no signature message
+    expect(screen.getByText('eMeterai 4/3')).toBeTruthy();
+    expect(screen.getByText('0 of 3')).toBeTruthy(); // clamped, never -1
+
+    const button = continueButton();
+    expect(button.disabled).toBe(true);
+    expect(describedByText(button)).toContain('over your eMeterai quota');
+  });
+
+  it('§A3.5 — both shortfalls are on screen at once, as two distinct sentences', async () => {
+    await reachStepTwo();
+
+    fireEvent.change(screen.getByLabelText(/Signatures for Rina Halim/), { target: { value: '6' } });
+    fireEvent.change(screen.getByLabelText(/Signatures for Budi Santoso/), { target: { value: '3' } });
+    fireEvent.change(meteraiBox('Rina Halim'), { target: { value: '3' } });
+    fireEvent.change(meteraiBox('Budi Santoso'), { target: { value: '1' } });
+
+    expect(screen.getAllByText('9 of 8 signatures — 1 over your quota')).toHaveLength(2);
+    expect(screen.getAllByText('4 of 3 eMeterai — 1 over your eMeterai quota')).toHaveLength(2);
+
+    const reasons = describedByText(continueButton());
+    expect(reasons).toContain('1 over your quota');
+    expect(reasons).toContain('1 over your eMeterai quota');
+  });
+
+  it('an eMeterai change invalidates a server-confirmed total (§8.10, staleness guard)', async () => {
+    const calls = await reachStepTwo(() =>
+      json(200, {
+        recipient_count: 2,
+        total_signatures: 3,
+        total_meterai: 0,
+        price: { signature: '5000.00', meterai: '10000.10' },
+        charges: { signature: '15000.00', meterai: '0.00' },
+        total_charge: '15000.00',
+        quota: { signature: 8, meterai: 3 },
+        quota_remaining: { signature: 5, meterai: 3 },
+      }),
+    );
+
+    fireEvent.click(continueButton());
+    await screen.findByText('Server-confirmed');
+
+    // The sent payload carries the fourth key (§B4).
+    const body = calls.at(-1)?.body as { recipients: Record<string, unknown>[] };
+    expect(body.recipients[0]?.meterai_count).toBe(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More eMeterai for Rina Halim' }));
+
+    expect(screen.queryByText('Server-confirmed')).toBeNull();
+    expect(screen.getByText('Estimate')).toBeTruthy();
+    expect(screen.getByText('Rp25.000,10')).toBeTruthy(); // back to the local estimate
+  });
+});
+
 describe('Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17)', () => {
   it('disables Continue over quota, clamps remaining at 0 and names the numbers', async () => {
     await reachStepTwo();
@@ -356,11 +533,12 @@ describe('Step 2 Continue — the server is the authority (PRD §8.9, LD-13)', (
       json(200, {
         recipient_count: 2,
         total_signatures: 3,
-        price: { signature: '5000.00' },
-        charges: { signature: '15000.00' },
+        total_meterai: 0,
+        price: { signature: '5000.00', meterai: '10000.10' },
+        charges: { signature: '15000.00', meterai: '0.00' },
         total_charge: '15000.00',
-        quota: { signature: 8 },
-        quota_remaining: { signature: 5 },
+        quota: { signature: 8, meterai: 3 },
+        quota_remaining: { signature: 5, meterai: 3 },
       }),
     );
 
@@ -371,6 +549,7 @@ describe('Step 2 Continue — the server is the authority (PRD §8.9, LD-13)', (
     expect(Object.keys(body)).toEqual(['recipients']);
     expect(Object.keys((body.recipients as Record<string, unknown>[])[0] ?? {}).sort()).toEqual([
       'email',
+      'meterai_count',
       'name',
       'signature_count',
     ]);
@@ -387,11 +566,12 @@ describe('Step 2 Continue — the server is the authority (PRD §8.9, LD-13)', (
       json(200, {
         recipient_count: 2,
         total_signatures: 3,
-        price: { signature: '5000.00' },
-        charges: { signature: '15000.00' },
+        total_meterai: 0,
+        price: { signature: '5000.00', meterai: '10000.10' },
+        charges: { signature: '15000.00', meterai: '0.00' },
         total_charge: '15000.00',
-        quota: { signature: 8 },
-        quota_remaining: { signature: 5 },
+        quota: { signature: 8, meterai: 3 },
+        quota_remaining: { signature: 5, meterai: 3 },
       }),
     );
 
@@ -420,11 +600,12 @@ describe('Step 2 Continue — the server is the authority (PRD §8.9, LD-13)', (
         : json(200, {
             recipient_count: 2,
             total_signatures: 3,
-            price: { signature: '5000.00' },
-            charges: { signature: '15000.00' },
+            total_meterai: 0,
+            price: { signature: '5000.00', meterai: '10000.10' },
+            charges: { signature: '15000.00', meterai: '0.00' },
             total_charge: '15000.00',
-            quota: { signature: 8 },
-            quota_remaining: { signature: 5 },
+            quota: { signature: 8, meterai: 3 },
+            quota_remaining: { signature: 5, meterai: 3 },
           });
     });
 
@@ -468,18 +649,33 @@ describe('Step 2 Continue — the server is the authority (PRD §8.9, LD-13)', (
 });
 
 describe('every Step 2 input has an associated label (PRD §8.12)', () => {
-  it('holds for the name, email and signature inputs of every row', async () => {
+  it('holds for the name, email, signature and eMeterai inputs of every row', async () => {
     const { container } = render(<div />);
     void container;
     await reachStepTwo();
 
+    // Four inputs per row across two seeded rows, the eMeterai box included.
     const inputs = document.querySelectorAll('.signer-row input');
-    expect(inputs.length).toBe(6);
+    expect(inputs.length).toBe(8);
     for (const input of inputs) {
       expect(document.querySelector(`label[for="${input.id}"]`)).not.toBeNull();
     }
     expect(document.getElementById('signer-name-0')).not.toBeNull();
     expect(document.getElementById('signer-email-0')).not.toBeNull();
     expect(document.getElementById('signer-count-0')).not.toBeNull();
+    expect(document.getElementById('signer-meterai-0')).not.toBeNull();
+  });
+
+  it('gives every icon button on the row an aria-label naming the signer', async () => {
+    await reachStepTwo();
+    for (const label of [
+      'Fewer signatures for Rina Halim',
+      'More signatures for Rina Halim',
+      'Fewer eMeterai for Rina Halim',
+      'More eMeterai for Rina Halim',
+      'Remove Rina Halim',
+    ]) {
+      expect(screen.getByRole('button', { name: label })).toBeTruthy();
+    }
   });
 });

@@ -20,6 +20,10 @@ export function createSeedState(): RecipientsState {
         email: 'rina.halim@example.test',
         signature_count: 2,
         countRaw: '2',
+        // §A3.1: the default is 0. The seed states the default rather than
+        // choosing a billable value on the user's behalf.
+        meterai_count: 0,
+        meteraiRaw: '0',
       },
       {
         id: 'r1',
@@ -27,6 +31,8 @@ export function createSeedState(): RecipientsState {
         email: 'budi.santoso@example.test',
         signature_count: 1,
         countRaw: '1',
+        meterai_count: 0,
+        meteraiRaw: '0',
       },
     ],
     nextId: 2,

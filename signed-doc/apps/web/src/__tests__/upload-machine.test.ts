@@ -27,8 +27,9 @@ function file(name: string, size = 1024): File {
 const envelopeFor = (filename: string, pageCount: number): EnvelopeCreatedResponse => ({
   envelope_id: 'env_01',
   document: { filename, size_bytes: 1_468_006, page_count: pageCount },
-  price: { signature: '5000.00' },
-  quota: { signature: 8 },
+  // §B1: the account's two prices and two allowances, both server-issued.
+  price: { signature: '5000.00', meterai: '10000.10' },
+  quota: { signature: 8, meterai: 3 },
 });
 
 /** Drive the machine through a list of actions, left to right. */
@@ -306,8 +307,13 @@ describe('the gate opens only on a real server success (PRD §7.6)', () => {
 
   it('carries the server-issued price and quota — the browser has no other source', () => {
     // ADR-003: price and quota reach the browser ONLY inside the 201 body.
-    expect(uploadedEnvelope(uploadedState())?.price).toEqual({ signature: '5000.00' });
-    expect(uploadedEnvelope(uploadedState())?.quota).toEqual({ signature: 8 });
+    // Both resources, Case 2 included: the eMeterai price and allowance are
+    // the server's too, and nothing in the bundle may hardcode them (§B1).
+    expect(uploadedEnvelope(uploadedState())?.price).toEqual({
+      signature: '5000.00',
+      meterai: '10000.10',
+    });
+    expect(uploadedEnvelope(uploadedState())?.quota).toEqual({ signature: 8, meterai: 3 });
   });
 });
 

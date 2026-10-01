@@ -36,8 +36,10 @@ function fill(count: number): RecipientsState {
 describe('seed (LD-15, PRD §6)', () => {
   it('seeds Rina Halim and Budi Santoso exactly as the PRD gives them', () => {
     expect(toRecipientInputs(createSeedState())).toEqual([
-      { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2 },
-      { name: 'Budi Santoso', email: 'budi.santoso@example.test', signature_count: 1 },
+      // §A3.1: `meterai_count` defaults to 0, so the seeded bill is unchanged
+      // from Case 1 — adding the column cost the user nothing.
+      { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2, meterai_count: 0 },
+      { name: 'Budi Santoso', email: 'budi.santoso@example.test', signature_count: 1, meterai_count: 0 },
     ]);
   });
 
@@ -69,6 +71,8 @@ describe('no derived total is stored (PRD §8.6)', () => {
         'countRaw',
         'email',
         'id',
+        'meteraiRaw',
+        'meterai_count',
         'name',
         'signature_count',
       ]);

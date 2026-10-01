@@ -4,8 +4,8 @@
  * blank-name fallback.
  *
  * Accessibility contract, all of it scored:
- * - all three inputs carry a `<label for>` (`signer-name-{i}`,
- *   `signer-email-{i}`, `signer-count-{i}`);
+ * - all four inputs carry a `<label for>` (`signer-name-{i}`,
+ *   `signer-email-{i}`, `signer-count-{i}`, `signer-meterai-{i}`);
  * - the `-`, `+` and remove buttons carry an `aria-label` naming the signer;
  * - an invalid field carries `aria-invalid` plus `aria-describedby` pointing at
  *   its visible message.
@@ -14,9 +14,16 @@
  * against a probe that holds the other fields known-good. That keeps the row's
  * marking driven by the one shared validation module (PRD §8.5) instead of by a
  * local re-implementation or by string-matching its messages.
+ *
+ * **§A3.2 is marked HERE, on the row, not on the form** (§B7 row 4). The
+ * predicate is the kernel's `meteraiWithinSignatures`, evaluated once by the
+ * step and handed down as `meteraiExceedsSignatures`, so the footer's blocker
+ * list and this row's red box can never disagree about which rows are at fault.
  */
 
 import {
+  MIN_METERAI_COUNT,
+  MAX_METERAI_COUNT,
   MIN_SIGNATURE_COUNT,
   MAX_SIGNATURE_COUNT,
   formatDecimalString,
@@ -38,14 +45,34 @@ export interface RowFieldErrors {
 
 export function fieldErrorsFor(row: Pick<Row, 'name' | 'email'>, index: number): RowFieldErrors {
   const nameFailure = validateRecipient(
-    { name: row.name, email: PROBE_EMAIL, signature_count: MIN_SIGNATURE_COUNT },
+    {
+      name: row.name,
+      email: PROBE_EMAIL,
+      signature_count: MIN_SIGNATURE_COUNT,
+      meterai_count: MIN_METERAI_COUNT,
+    },
     index,
   );
   const emailFailure = validateRecipient(
-    { name: PROBE_NAME, email: row.email, signature_count: MIN_SIGNATURE_COUNT },
+    {
+      name: PROBE_NAME,
+      email: row.email,
+      signature_count: MIN_SIGNATURE_COUNT,
+      meterai_count: MIN_METERAI_COUNT,
+    },
     index,
   );
   return { name: nameFailure?.message ?? null, email: emailFailure?.message ?? null };
+}
+
+/**
+ * The visible reason for §A3.2, naming both numbers so the user can see which
+ * of the two to change. It never mentions a quota — §A3.5's two shortfalls and
+ * this per-row rule must stay three distinguishable things on screen.
+ */
+export function meteraiExceedsMessage(row: Pick<Row, 'meterai_count' | 'signature_count'>): string {
+  const signatures = row.signature_count === 1 ? '1 signature' : `${row.signature_count} signatures`;
+  return `${row.meterai_count} eMeterai for ${signatures} — one duty stamp per signature`;
 }
 
 export interface RecipientRowProps {
@@ -53,8 +80,11 @@ export interface RecipientRowProps {
   readonly row: Row;
   readonly chargeMinor: Minor;
   readonly unitPrice: string;
+  readonly meteraiPrice: string;
   /** True when this row shares a normalized email with another row. */
   readonly duplicate: boolean;
+  /** §A3.2, decided by the kernel's `meteraiWithinSignatures` one level up. */
+  readonly meteraiExceedsSignatures: boolean;
   readonly canRemove: boolean;
   readonly onSetName: (index: number, value: string) => void;
   readonly onSetEmail: (index: number, value: string) => void;
@@ -62,6 +92,10 @@ export interface RecipientRowProps {
   readonly onCommitCount: (index: number) => void;
   readonly onIncrement: (index: number) => void;
   readonly onDecrement: (index: number) => void;
+  readonly onSetMeteraiRaw: (index: number, raw: string) => void;
+  readonly onCommitMeterai: (index: number) => void;
+  readonly onIncrementMeterai: (index: number) => void;
+  readonly onDecrementMeterai: (index: number) => void;
   readonly onRemove: (index: number) => void;
 }
 
@@ -70,7 +104,9 @@ export function RecipientRow({
   row,
   chargeMinor,
   unitPrice,
+  meteraiPrice,
   duplicate,
+  meteraiExceedsSignatures,
   canRemove,
   onSetName,
   onSetEmail,
@@ -78,6 +114,10 @@ export function RecipientRow({
   onCommitCount,
   onIncrement,
   onDecrement,
+  onSetMeteraiRaw,
+  onCommitMeterai,
+  onIncrementMeterai,
+  onDecrementMeterai,
   onRemove,
 }: RecipientRowProps): JSX.Element {
   const who = accessibleNameFor(row, index);
@@ -86,8 +126,10 @@ export function RecipientRow({
   const nameId = `signer-name-${index}`;
   const emailId = `signer-email-${index}`;
   const countId = `signer-count-${index}`;
+  const meteraiId = `signer-meterai-${index}`;
   const nameErrorId = `${nameId}-error`;
   const emailErrorId = `${emailId}-error`;
+  const meteraiErrorId = `${meteraiId}-error`;
 
   const emailMessage = duplicate
     ? 'This email is already used by another recipient'
@@ -170,11 +212,69 @@ export function RecipientRow({
         </button>
       </div>
 
+      {/* §A3.6 — the eMeterai column, interaction for interaction the twin of
+          the Signatures column beside it. */}
+      <div className="count-stepper">
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label={`Fewer eMeterai for ${who}`}
+          disabled={row.meterai_count <= MIN_METERAI_COUNT}
+          onClick={() => onDecrementMeterai(index)}
+        >
+          <span aria-hidden="true">&#8722;</span>
+        </button>
+        <label className="visually-hidden" htmlFor={meteraiId}>
+          {`eMeterai for ${who}`}
+        </label>
+        <input
+          id={meteraiId}
+          type="number"
+          inputMode="numeric"
+          min={MIN_METERAI_COUNT}
+          max={MAX_METERAI_COUNT}
+          value={row.meteraiRaw}
+          aria-invalid={meteraiExceedsSignatures ? 'true' : undefined}
+          aria-describedby={meteraiExceedsSignatures ? meteraiErrorId : undefined}
+          onChange={(event) => onSetMeteraiRaw(index, event.target.value)}
+          onBlur={() => onCommitMeterai(index)}
+        />
+        <button
+          type="button"
+          className="icon-btn"
+          /*
+            §A3.2 is NOT enforced here. The ceiling this button respects is the
+            kernel's 0..3; walking past the row's signature_count has to stay
+            possible, or the rule below never appears and `422
+            METERAI_EXCEEDS_SIGNATURE` is unreachable from the UI.
+          */
+          aria-label={`More eMeterai for ${who}`}
+          disabled={row.meterai_count >= MAX_METERAI_COUNT}
+          onClick={() => onIncrementMeterai(index)}
+        >
+          <span aria-hidden="true">+</span>
+        </button>
+        {meteraiExceedsSignatures ? (
+          <span className="field-error" id={meteraiErrorId}>
+            {meteraiExceedsMessage(row)}
+          </span>
+        ) : null}
+      </div>
+
       {/*
-        Derived in render from the shared `computeCharges` output. Nothing is
-        stored, so this cell cannot disagree with the total (PRD §8.6).
+        Derived in render from the shared `computeCharges` output — `chargeMinor`
+        is already this recipient's COMBINED cost (§A3.6), so nothing is summed
+        here. Nothing is stored either, so this cell cannot disagree with the
+        total (PRD §8.6).
       */}
-      <div className="charge-cell" title={`${row.signature_count} x ${formatIdr(unitPrice)}`}>
+      <div
+        className="charge-cell"
+        title={
+          row.meterai_count > 0
+            ? `${row.signature_count} x ${formatIdr(unitPrice)} + ${row.meterai_count} x ${formatIdr(meteraiPrice)}`
+            : `${row.signature_count} x ${formatIdr(unitPrice)}`
+        }
+      >
         {formatIdr(formatDecimalString(chargeMinor))}
       </div>
 

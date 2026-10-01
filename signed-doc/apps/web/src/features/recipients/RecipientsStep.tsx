@@ -2,16 +2,19 @@
  * Step 2 — Set recipients (PRD §8.1–§8.12). Copy from mockup board 2.
  *
  * **Everything numeric on this screen is derived in render.** The per-row
- * charge, the total signature count, the total charge and the remaining quota
- * all come from `computeCharges` / `quotaRemaining` on the current rows, every
- * render. There is no total in state and no effect that synchronizes one, so
- * the figures cannot drift (PRD §8.6, prompt §4 fact 9).
+ * combined charge, both totals, both priced lines, the total charge and both
+ * remaining quotas all come from `computeCharges` / `quotaRemaining` on the
+ * current rows, every render. There is no total in state and no effect that
+ * synchronizes one, so the figures cannot drift (PRD §8.6, prompt §4 fact 9,
+ * Case 2 §A3.9).
  *
- * **The gate** (PRD §8.8): `Continue` is disabled when any row fails
- * `validateRecipient`, when a duplicate-email group exists, or when the total
- * exceeds the quota. Every active reason is listed as visible text, and the
- * whole list is the `aria-describedby` target — so two simultaneous blockers
- * are both on screen rather than collapsed into one generic message.
+ * **The gate** (PRD §8.8, §A3.5): `Continue` is disabled when any row fails
+ * `validateRecipient`, when a row carries more eMeterai than signatures
+ * (§A3.2), when a duplicate-email group exists, or when EITHER quota is
+ * exceeded. Every active reason is listed as visible text, and the whole list
+ * is the `aria-describedby` target — so two simultaneous blockers are both on
+ * screen rather than collapsed into one generic message, and a signature
+ * shortfall never reads as an eMeterai shortfall.
  *
  * **The staleness guard** (PRD §8.10, seam S5) is read-side as well as
  * write-side: the panel asks `resultFor(key)` for the CURRENT payload key. A
@@ -24,11 +27,7 @@ import type { Dispatch } from 'react';
 
 import {
   MAX_RECIPIENTS,
-  computeCharges,
   findDuplicateEmailGroups,
-  formatDecimalString,
-  parseDecimalString,
-  quotaRemaining,
   validateRecipient,
   type EnvelopeCreatedResponse,
   type Minor,
@@ -36,8 +35,9 @@ import {
 
 import { fetchChargePreview } from '../../api/charge-preview.js';
 import { DisabledControl } from '../../components/DisabledControl.js';
-import { RecipientRow } from './RecipientRow.js';
-import { SummaryPanel, overQuotaMessage } from './SummaryPanel.js';
+import { deriveTotals } from './derive.js';
+import { RecipientRow, meteraiExceedsMessage } from './RecipientRow.js';
+import { SummaryPanel, overMeteraiQuotaMessage, overQuotaMessage } from './SummaryPanel.js';
 import {
   canAddRecipient,
   canRemoveRecipient,
@@ -49,6 +49,8 @@ import { PreviewController, previewKey, type PreviewTransport } from './preview-
 
 const CONTINUE_REASON_ID = 'recipients-continue-reason';
 const OVER_QUOTA_ID = 'recipients-over-quota';
+/** §A3.5 — its own id, so the two shortfalls are two describedby targets. */
+const OVER_METERAI_QUOTA_ID = 'recipients-over-meterai-quota';
 
 /** The real transport. Injectable so the step can be driven without a network. */
 const httpTransport: PreviewTransport = (envelopeId, recipients, signal) =>
@@ -91,32 +93,48 @@ export function RecipientsStep({
   useEffect(() => () => controller.dispose(), [controller]);
 
   const unitPrice = envelope.price.signature;
-  const prices = useMemo(() => ({ signature: safeParse(unitPrice) }), [unitPrice]);
+  const meteraiPrice = envelope.price.meterai;
 
-  const breakdown = computeCharges(recipients, prices);
-  const balance = quotaRemaining(
-    { signature: breakdown.totalSignatures },
-    { signature: envelope.quota.signature },
-  );
-  const totalCharge = formatDecimalString(breakdown.totalChargeMinor);
+  /*
+    §A3.9 — every figure below is recomputed here, in render, from the rows as
+    they are right now. `deriveTotals` is pure and uncached on purpose: there is
+    no memo to invalidate, so a stale number is not merely unlikely, it has
+    nowhere to live. §A3.2's per-row verdict comes back from the same call,
+    which is why the footer reason and the row's red box cannot disagree.
+  */
+  const { breakdown, balance, signatureCharge, meteraiCharge, totalCharge, meteraiExceeds } =
+    deriveTotals(recipients, envelope);
 
   // ------------------------------------------------------------- validation
   const rowFailures = recipients.map((recipient, index) => validateRecipient(recipient, index));
   const duplicateGroups = findDuplicateEmailGroups(recipients);
   const duplicateIndexes = new Set(duplicateGroups.flat());
   const overBy = balance.signature.overBy;
+  const meteraiOverBy = balance.meterai.overBy;
 
   const blockers: string[] = [];
   rowFailures.forEach((failure, index) => {
     if (failure) blockers.push(`Recipient ${index + 1}: ${failure.message}`);
+  });
+  recipients.forEach((recipient, index) => {
+    if (meteraiExceeds[index]) {
+      blockers.push(`Recipient ${index + 1}: ${meteraiExceedsMessage(recipient)}`);
+    }
   });
   for (const group of duplicateGroups) {
     blockers.push(
       `Recipients ${group.map((i) => i + 1).join(' and ')} use the same email address`,
     );
   }
+  // §A3.5: two independent quotas, two independent blockers. Both can be on
+  // screen at once and neither borrows the other's wording.
   if (overBy > 0) {
     blockers.push(overQuotaMessage(breakdown.totalSignatures, envelope.quota.signature, overBy));
+  }
+  if (meteraiOverBy > 0) {
+    blockers.push(
+      overMeteraiQuotaMessage(breakdown.totalMeterai, envelope.quota.meterai, meteraiOverBy),
+    );
   }
 
   const canContinue = blockers.length === 0;
@@ -146,6 +164,7 @@ export function RecipientsStep({
         <span>Full name</span>
         <span>Email address</span>
         <span>Signatures</span>
+        <span>eMeterai</span>
         <span>Charge</span>
         <span />
       </div>
@@ -157,8 +176,10 @@ export function RecipientsStep({
             index={index}
             row={row}
             unitPrice={unitPrice}
+            meteraiPrice={meteraiPrice}
             chargeMinor={breakdown.rows[index]?.chargeMinor ?? (0n as Minor)}
             duplicate={duplicateIndexes.has(index) || serverFlagged.has(index)}
+            meteraiExceedsSignatures={meteraiExceeds[index] ?? false}
             canRemove={canRemoveRecipient(state)}
             onSetName={(i, value) => dispatch({ type: 'SET_NAME', index: i, value })}
             onSetEmail={(i, value) => dispatch({ type: 'SET_EMAIL', index: i, value })}
@@ -166,6 +187,10 @@ export function RecipientsStep({
             onCommitCount={(i) => dispatch({ type: 'COMMIT_COUNT', index: i })}
             onIncrement={(i) => dispatch({ type: 'INC', index: i })}
             onDecrement={(i) => dispatch({ type: 'DEC', index: i })}
+            onSetMeteraiRaw={(i, raw) => dispatch({ type: 'SET_METERAI_RAW', index: i, raw })}
+            onCommitMeterai={(i) => dispatch({ type: 'COMMIT_METERAI', index: i })}
+            onIncrementMeterai={(i) => dispatch({ type: 'INC_METERAI', index: i })}
+            onDecrementMeterai={(i) => dispatch({ type: 'DEC_METERAI', index: i })}
             onRemove={(i) => dispatch({ type: 'REMOVE_ROW', index: i })}
           />
         ))}
@@ -192,13 +217,21 @@ export function RecipientsStep({
 
       <SummaryPanel
         totalSignatures={breakdown.totalSignatures}
+        totalMeterai={breakdown.totalMeterai}
         unitPrice={unitPrice}
+        meteraiPrice={meteraiPrice}
+        signatureCharge={signatureCharge}
+        meteraiCharge={meteraiCharge}
         totalCharge={totalCharge}
         quotaTotal={envelope.quota.signature}
+        meteraiQuotaTotal={envelope.quota.meterai}
         remaining={balance.signature.remaining}
+        meteraiRemaining={balance.meterai.remaining}
         overBy={overBy}
+        meteraiOverBy={meteraiOverBy}
         confirmed={confirmed}
         overQuotaMessageId={OVER_QUOTA_ID}
+        overMeteraiQuotaMessageId={OVER_METERAI_QUOTA_ID}
       />
 
       {previewLoading ? (
@@ -248,7 +281,18 @@ export function RecipientsStep({
           className="btn btn--primary"
           disabled={!canContinue || previewLoading}
           aria-disabled={canContinue ? undefined : 'true'}
-          aria-describedby={overBy > 0 ? `${CONTINUE_REASON_ID} ${OVER_QUOTA_ID}` : CONTINUE_REASON_ID}
+          /*
+            §A3.5: each live shortfall adds its OWN message to the accessible
+            description, so a screen reader hears "over your quota" and "over
+            your eMeterai quota" as two facts rather than one.
+          */
+          aria-describedby={[
+            CONTINUE_REASON_ID,
+            overBy > 0 ? OVER_QUOTA_ID : null,
+            meteraiOverBy > 0 ? OVER_METERAI_QUOTA_ID : null,
+          ]
+            .filter(Boolean)
+            .join(' ')}
           onClick={onContinue}
         >
           Continue
@@ -256,18 +300,4 @@ export function RecipientsStep({
       </div>
     </main>
   );
-}
-
-/**
- * The price is a server-issued wire string, so a parse failure means the server
- * broke its own contract. Falling back to zero keeps the screen rendering
- * instead of throwing inside render; the figure is then visibly wrong rather
- * than invisibly wrong, and the server's `Continue` answer is unaffected.
- */
-function safeParse(money: string): Minor {
-  try {
-    return parseDecimalString(money);
-  } catch {
-    return 0n;
-  }
 }

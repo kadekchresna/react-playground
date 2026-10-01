@@ -24,22 +24,35 @@ import {
 
 const ENVELOPE = 'env_01';
 
-const RINA: RecipientInput = { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2 };
-const BUDI: RecipientInput = { name: 'Budi Santoso', email: 'budi.santoso@example.test', signature_count: 1 };
+const RINA: RecipientInput = {
+  name: 'Rina Halim',
+  email: 'rina.halim@example.test',
+  signature_count: 2,
+  meterai_count: 0,
+};
+const BUDI: RecipientInput = {
+  name: 'Budi Santoso',
+  email: 'budi.santoso@example.test',
+  signature_count: 1,
+  meterai_count: 0,
+};
 
 const SEEDED = [RINA, BUDI];
 /** Rina bumped to 3 — the "user edits while a request is pending" payload. */
 const EDITED = [{ ...RINA, signature_count: 3 }, BUDI];
+/** The same list with one duty stamp added instead (Case 2 §A3). */
+const STAMPED = [{ ...RINA, meterai_count: 1 }, BUDI];
 
 function response(totalSignatures: number, totalCharge: string, remaining: number): ChargePreviewResponse {
   return {
     recipient_count: 2,
     total_signatures: totalSignatures,
-    price: { signature: '5000.00' },
-    charges: { signature: totalCharge },
+    total_meterai: 0,
+    price: { signature: '5000.00', meterai: '10000.10' },
+    charges: { signature: totalCharge, meterai: '0.00' },
     total_charge: totalCharge,
-    quota: { signature: 8 },
-    quota_remaining: { signature: remaining },
+    quota: { signature: 8, meterai: 3 },
+    quota_remaining: { signature: remaining, meterai: 3 },
   };
 }
 
@@ -81,6 +94,17 @@ describe('previewKey (seam S5)', () => {
     expect(previewKey(ENVELOPE, [{ ...RINA, email: 'other@example.test' }, BUDI])).not.toBe(base);
   });
 
+  it('changes when an eMeterai count changes — §A3 data is hashed too', () => {
+    const base = previewKey(ENVELOPE, SEEDED);
+    expect(previewKey(ENVELOPE, STAMPED)).not.toBe(base);
+    // And on the second row independently, so it is the row's value that
+    // counts and not merely the list total.
+    expect(previewKey(ENVELOPE, [RINA, { ...BUDI, meterai_count: 1 }])).not.toBe(base);
+    expect(previewKey(ENVELOPE, STAMPED)).not.toBe(
+      previewKey(ENVELOPE, [RINA, { ...BUDI, meterai_count: 1 }]),
+    );
+  });
+
   it('changes when the list length or order changes', () => {
     const base = previewKey(ENVELOPE, SEEDED);
     expect(previewKey(ENVELOPE, [RINA])).not.toBe(base);
@@ -93,8 +117,8 @@ describe('previewKey (seam S5)', () => {
 
   it('ignores property order and local-only fields, so a re-render is not a change', () => {
     const reordered = [
-      { signature_count: 2, email: 'rina.halim@example.test', name: 'Rina Halim' },
-      { email: 'budi.santoso@example.test', signature_count: 1, name: 'Budi Santoso' },
+      { meterai_count: 0, signature_count: 2, email: 'rina.halim@example.test', name: 'Rina Halim' },
+      { email: 'budi.santoso@example.test', signature_count: 1, name: 'Budi Santoso', meterai_count: 0 },
     ];
     expect(previewKey(ENVELOPE, reordered)).toBe(previewKey(ENVELOPE, SEEDED));
   });
@@ -127,10 +151,15 @@ describe('the happy path', () => {
     });
 
     await new PreviewController(transport).request(ENVELOPE, [
-      { ...RINA, id: 'r0', countRaw: '2' } as RecipientInput,
+      { ...RINA, id: 'r0', countRaw: '2', meteraiRaw: '0' } as RecipientInput,
     ]);
 
-    expect(Object.keys(seen[0]?.[0] ?? {}).sort()).toEqual(['email', 'name', 'signature_count']);
+    expect(Object.keys(seen[0]?.[0] ?? {}).sort()).toEqual([
+      'email',
+      'meterai_count',
+      'name',
+      'signature_count',
+    ]);
   });
 
   it('notifies subscribers on every state change', async () => {
@@ -262,6 +291,47 @@ describe('any change to recipient data invalidates the previous server result (�
     // to the local estimate rather than showing figures for the old list.
     expect(controller.resultFor(editedKey)).toBeNull();
     expect(controller.resultFor(seededKey)).toEqual(SEEDED_RESULT);
+  });
+
+  it('an eMeterai change invalidates a CONFIRMED preview, exactly as a signature change does', async () => {
+    const { transport, calls } = deferredTransport();
+    const controller = new PreviewController(transport);
+    const seededKey = previewKey(ENVELOPE, SEEDED);
+    const stampedKey = previewKey(ENVELOPE, STAMPED);
+
+    const pending = controller.request(ENVELOPE, SEEDED);
+    calls[0]?.resolve(SEEDED_RESULT);
+    await pending;
+    expect(controller.resultFor(seededKey)).toEqual(SEEDED_RESULT);
+
+    // The user adds one duty stamp to Rina. No new request has been made.
+    controller.syncKey(stampedKey);
+
+    expect(controller.resultFor(stampedKey)).toBeNull();
+    // ...and taking it off again reaches the server's own answer, unasked.
+    controller.syncKey(seededKey);
+    expect(controller.resultFor(seededKey)).toEqual(SEEDED_RESULT);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('an eMeterai change aborts a PENDING preview and drops its late answer', async () => {
+    const { transport, calls } = deferredTransport();
+    const controller = new PreviewController(transport);
+    const stampedKey = previewKey(ENVELOPE, STAMPED);
+
+    const pending = controller.request(ENVELOPE, SEEDED);
+    expect(calls[0]?.signal.aborted).toBe(false);
+
+    controller.syncKey(stampedKey); // the eMeterai stepper moved
+    expect(calls[0]?.signal.aborted).toBe(true);
+    expect(controller.getSnapshot().status).toBe('idle');
+
+    calls[0]?.resolve(SEEDED_RESULT);
+    await pending;
+    await flush();
+
+    expect(controller.getSnapshot().status).toBe('idle');
+    expect(controller.resultFor(stampedKey)).toBeNull();
   });
 
   it('aborts an in-flight request when the data changes under it', async () => {

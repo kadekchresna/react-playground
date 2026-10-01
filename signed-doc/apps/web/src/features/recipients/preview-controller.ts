@@ -4,8 +4,12 @@
  * ## Seam S5 — the guard keys on a payload hash, not on a request counter
  *
  * `previewKey` reduces the preview input — the envelope id and the exact
- * `{ name, email, signature_count }` triples, in order — to one canonical
- * string. That string is stored beside the last result, and a result is only
+ * `{ name, email, signature_count, meterai_count }` tuples, in order — to one
+ * canonical string. Case 2 §A3 put `meterai_count` on the wire, so it is part
+ * of the hashed input too: changing an eMeterai count invalidates a pending
+ * preview exactly as changing a signature count does, and for the same
+ * structural reason rather than by a second rule someone has to remember.
+ * That string is stored beside the last result, and a result is only
  * ever readable through `resultFor(key)`, which compares. Three consequences:
  *
  * 1. **A late response for older data can never become the active result.** Its
@@ -82,7 +86,7 @@ const IDLE: PreviewSnapshot = { status: 'idle', key: null, result: null, error: 
 export function previewKey(envelopeId: string, recipients: readonly RecipientInput[]): string {
   return JSON.stringify([
     envelopeId,
-    recipients.map((r) => [r.name, r.email, r.signature_count]),
+    recipients.map((r) => [r.name, r.email, r.signature_count, r.meterai_count]),
   ]);
 }
 
@@ -181,6 +185,7 @@ export class PreviewController {
       name: r.name,
       email: r.email,
       signature_count: r.signature_count,
+      meterai_count: r.meterai_count,
     }));
 
     this.#lastIntent = { envelopeId, recipients: payload };

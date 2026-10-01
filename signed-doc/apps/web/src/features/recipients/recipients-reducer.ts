@@ -16,14 +16,25 @@
  * `clampSignatureCount`, which is total — it always returns an integer in
  * 1..20 (PRD §8.3, prompt §4 fact 7).
  *
+ * **Case 2 §A3 repeats that pair verbatim for e-meterai.** `meteraiRaw` is to
+ * `meterai_count` what `countRaw` is to `signature_count`, and the committed
+ * integer only ever moves through `clampMeteraiCount`, which is total in
+ * 0..3. Note what the clamp deliberately does NOT do: it never caps against
+ * the row's own `signature_count`. §A3.2 is a rule the user has to be TOLD
+ * about — the row is marked and the server answers `422
+ * METERAI_EXCEEDS_SIGNATURE` — so a stepper that silently capped itself would
+ * make that state unreachable and the rule invisible.
+ *
  * Every rule is imported from `@signed-doc/shared`. There is no local copy of
  * a bound, a clamp or a count check (PRD §8.5).
  */
 
 import {
   MAX_RECIPIENTS,
+  MIN_METERAI_COUNT,
   MIN_RECIPIENTS,
   MIN_SIGNATURE_COUNT,
+  clampMeteraiCount,
   clampSignatureCount,
   type RecipientInput,
 } from '@signed-doc/shared';
@@ -31,8 +42,10 @@ import {
 export interface RecipientRow extends RecipientInput {
   /** Stable local key. Never sent to the server. */
   readonly id: string;
-  /** The text in the number input, which may be mid-edit. Never sent either. */
+  /** The text in the signature number input, mid-edit. Never sent either. */
   readonly countRaw: string;
+  /** The same, for the eMeterai number input (§A3.6). Never sent. */
+  readonly meteraiRaw: string;
 }
 
 export interface RecipientsState {
@@ -48,6 +61,10 @@ export type RecipientsAction =
   | { type: 'COMMIT_COUNT'; index: number }
   | { type: 'INC'; index: number }
   | { type: 'DEC'; index: number }
+  | { type: 'SET_METERAI_RAW'; index: number; raw: string }
+  | { type: 'COMMIT_METERAI'; index: number }
+  | { type: 'INC_METERAI'; index: number }
+  | { type: 'DEC_METERAI'; index: number }
   | { type: 'ADD_ROW' }
   | { type: 'REMOVE_ROW'; index: number };
 
@@ -58,6 +75,9 @@ export function emptyRow(id: string): RecipientRow {
     email: '',
     signature_count: MIN_SIGNATURE_COUNT,
     countRaw: String(MIN_SIGNATURE_COUNT),
+    // §A3.1: `meterai_count` defaults to 0.
+    meterai_count: MIN_METERAI_COUNT,
+    meteraiRaw: String(MIN_METERAI_COUNT),
   };
 }
 
@@ -80,6 +100,16 @@ function replaceRow(
 function withCount(row: RecipientRow, candidate: unknown): RecipientRow {
   const count = clampSignatureCount(candidate, row.signature_count);
   return { ...row, signature_count: count, countRaw: String(count) };
+}
+
+/**
+ * The eMeterai twin of `withCount` (§A3.6). `clampMeteraiCount` is total, so
+ * `meterai_count` cannot leave 0..3 — and is never capped at the row's
+ * `signature_count`, so §A3.2 stays reachable and visible.
+ */
+function withMeterai(row: RecipientRow, candidate: unknown): RecipientRow {
+  const count = clampMeteraiCount(candidate, row.meterai_count);
+  return { ...row, meterai_count: count, meteraiRaw: String(count) };
 }
 
 export function recipientsReducer(
@@ -122,6 +152,27 @@ export function recipientsReducer(
     case 'DEC':
       return replaceRow(state, action.index, (row) => withCount(row, row.signature_count - 1));
 
+    /** The eMeterai column, interaction for interaction identical to the above. */
+    case 'SET_METERAI_RAW':
+      return replaceRow(state, action.index, (row) => {
+        const repaired = clampMeteraiCount(action.raw, row.meterai_count);
+        const wasAlreadyLegal = String(repaired) === action.raw.trim();
+        return {
+          ...row,
+          meteraiRaw: action.raw,
+          meterai_count: wasAlreadyLegal ? repaired : row.meterai_count,
+        };
+      });
+
+    case 'COMMIT_METERAI':
+      return replaceRow(state, action.index, (row) => withMeterai(row, row.meteraiRaw));
+
+    case 'INC_METERAI':
+      return replaceRow(state, action.index, (row) => withMeterai(row, row.meterai_count + 1));
+
+    case 'DEC_METERAI':
+      return replaceRow(state, action.index, (row) => withMeterai(row, row.meterai_count - 1));
+
     // LD-16: a no-op at the ceiling. The button is disabled with a visible
     // reason, and the reducer refuses anyway.
     case 'ADD_ROW':
@@ -157,6 +208,7 @@ export function toRecipientInputs(state: RecipientsState): RecipientInput[] {
     name: row.name,
     email: row.email,
     signature_count: row.signature_count,
+    meterai_count: row.meterai_count,
   }));
 }
 

@@ -1,7 +1,10 @@
 /**
  * `POST /api/envelopes/:id/charge-preview` — the authoritative total (PRD §8.9).
  *
- * The request carries **only** `{ recipients: [{ name, email, signature_count }] }`.
+ * The request carries **only**
+ * `{ recipients: [{ name, email, signature_count, meterai_count }] }`
+ * (`test_2_en.md` §B4 adds the fourth key; P2's `step` and P3's `fields` are
+ * not sent, because this build does not have them).
  * Price, quota and any total are the server's to source (ADR-003, PRD §9), and
  * the server rejects a client that proposes them with `422 UNKNOWN_FIELD` —
  * so sending one would not merely be ignored, it would break the request.
@@ -33,6 +36,9 @@ export function toWireRecipients(
     name: r.name,
     email: r.email,
     signature_count: r.signature_count,
+    // Sent raw, never repaired here: a count the server would refuse must
+    // reach the server, or §B7.4's `422` becomes unreachable from the UI.
+    meterai_count: r.meterai_count,
   }));
 }
 
