@@ -417,3 +417,132 @@ would have fired `alert(1)` in the real browser. It did not.
 **Not covered by this pass:** the native file picker (automation attaches to the
 `input[type=file]` directly), real drag-and-drop (G-6), real timeout deadlines (G-4), and
 the oversize-from-UI path (G-3). Those gaps stand as written above.
+
+---
+
+# Case 2 — what was run, what was not
+
+Appended at the close of Case 2 by the orchestrating session. Section 9 above
+covers the Case-1 browser pass; this covers P1, P2 and P3.
+
+## 10. Commands run, with their actual results
+
+```
+$ pnpm -r typecheck
+packages/shared Done · apps/server Done · apps/web Done          exit 0
+
+$ pnpm -r test
+packages/shared test:  Tests  332 passed (332)
+apps/server    test:  Tests  165 passed (165)
+apps/web       test:  Tests  315 passed (315)
+                             812 total
+
+$ pnpm --filter @signed-doc/web build
+dist/assets/index-CGo0J-mA.js   200.82 kB │ gzip: 63.67 kB      ✓ built in 400ms
+
+$ grep -c "5000\|10000.10" apps/web/dist/assets/*.js
+0
+```
+
+Growth by slice: shared 113 → 183 (P1) → 247 (P2) → 332 (P3); server 62 → 81 →
+109 → 165; web 144 → 193 → 254 → 315. **No test was ever deleted or weakened.**
+Where a signature change forced a rewrite, the expected values were preserved;
+where the brief genuinely superseded an assertion (the stage-order lists, the
+stepper-pill-3-locked assertions), a complementary assertion was added that
+keeps the original's intent, and each is named in the relevant commit message.
+
+Per-slice raw output is in `docs/evidence/{shared,server,web}-tests.txt`, each
+append-only with the Case-1 capture intact at the top.
+
+## 11. Negative controls — proof the tests fail for the right reason
+
+Passing tests prove little when the failure mode is "compiles cleanly, does
+nothing". Each edit below was applied, the suite run, then reverted. **All six
+typecheck cleanly.** Recorded in `docs/evidence/server-tests.txt`.
+
+| Control | Failures |
+|---|---|
+| Drop the fields argument to `chargePreviewStages` | 36 |
+| Remove `'fields'` from the root allow-list | 55 |
+| Remove the per-field shape loop | 5 |
+| Hard-wire `field_count: 0` | 7 |
+| Hand-roll a clamp in the service (the §B2 violation) | 9 |
+| Collapse absent `fields` into empty | 20 |
+
+The P2 server slice ran three of its own in the same spirit (18, 17 and 28
+failures). The web slice disabled its focus-restoration effect and confirmed
+exactly the three §A2.7/§B7.19 focus tests went red — including one that failed
+with `activeElement === document.body`, i.e. focus genuinely lost.
+
+## 12. Real-browser passes (orchestrator-run, against both live processes)
+
+Each ran with `apps/server` on `:3001` and Vite on `:5173`, every request
+crossing the real dev-proxy boundary.
+
+**P1 (e-meterai).** §B7 row 1 exact: `Rp25.000,10`, remaining `5 of 8` and
+`2 of 3`, Rina's combined row charge `Rp20.000,10`, chips `Signature 3/8` and
+`eMeterai 1/3`. §B7 row 4: pushing Rina to 3 eMeterai against 2 signatures
+marked **that row** — `3 eMeterai for 2 signatures — one duty stamp per
+signature` — left Budi's row clean, and disabled `Continue` with
+`Recipient 1: …` as the footer reason.
+
+**P2 (signing order).** The mode selector renders above the list; parallel shows
+no step UI. Sequential grouped rows under `Step 1` / `Step 2` headers with a
+four-button order toolbar correctly disabled at the ends. Merging Budi into step
+1 produced `Step 1 — 2 recipients — they sign in parallel within this step` with
+every entered value intact. The sequential payload round-tripped to a
+`Server-confirmed` total, so the server accepted `step` over the wire.
+
+**P3 (place fields).** Stepper pill 3 unlocked; the `(locked in this exercise)`
+string is gone from the DOM. The palette reports the kernel's own sizes
+(`212 × 88`, `112 × 112`). Placing a signature produced a box labelled
+`Signature` / `RH Rina Halim` — kind **and** owner as text, not colour — with a
+visible focus ring on the new box. The reconciliation panel read
+`DOES NOT MATCH YET`, `Rina Halim — Signature 1/2 · eMeterai 0/0`,
+`1 Signature field still to place`. `Preview`, `Save as draft` and `Send` all
+render disabled with their reasons stated; `Send`'s names P4 explicitly.
+
+## 13. NOT verified — the honest list
+
+- **P4 is entirely unbuilt** and therefore entirely unverified: no
+  `preview_token`, no `/reserve`, no atomic dual decrement, no envelope lock, no
+  `409 PREVIEW_STALE` / `409 ENVELOPE_LOCKED`. This is the declared sacrifice,
+  not an oversight — see `docs/decisions.md`.
+- **No browser pass covered §B7 rows 15–18 end to end.** The boundary and
+  malformed-field rejections are proven at the API with both the out-of-range
+  value and the clamped value (`422` and `200` respectively), and the UI clamp is
+  unit-tested, but no one dragged a box to `x = 500` in Chrome and watched it
+  stop.
+- **The native file picker and real drag-and-drop remain untested** (carried over
+  from Case 1, G-2/G-6). The automation attaches to the `input[type=file]`
+  directly. Drag-and-drop from the palette was deliberately not built.
+- **The real 10 s / 60 s timeouts have never been observed firing** (G-4).
+  They are asserted with a 5 ms stand-in.
+- **The oversize-upload path has never been exercised from the UI** (G-3); the
+  server-side limit is covered.
+- **§B7 row 20** (out-of-order previews) is exhaustively covered at the
+  controller with an injected transport, but was never driven through the
+  mounted UI or a real network.
+- No screenshot or visual review of the Step 3 canvas beyond the single
+  orchestrator pass above; layout at other widths is unexamined, and responsive
+  layout is explicitly not assessed.
+
+## 14. Believed weak
+
+- **jsdom carries every rendered assertion.** It gives DOM semantics but no
+  layout, no real hit-testing and no true focus ring. The focus tests assert
+  `document.activeElement`, which is the right property, but a box that is
+  visually off-canvas would still pass.
+- **One unreproducible red run.** The P2 server slice saw a single non-zero exit
+  it could not reproduce; seven consecutive runs by that agent and five more by
+  the orchestrator were all green. Most likely contention with a concurrent
+  agent, but it is unproven and recorded rather than dismissed.
+- **`FIELD_COUNT_MISMATCH` is unreachable from the UI** because `Check charges`
+  is gated on the invariant holding locally. Deliberate (see decisions §9), and
+  the 422 path is covered by a stubbed rejection — but it means the server's own
+  message for that code has never been read by a user.
+- **The error copy for states no designer ever saw is the implementers' own** —
+  carried over from Case 1 and now considerably larger in surface.
+- **Accessibility is asserted, not audited.** Labels, `aria-label`s,
+  `aria-describedby` and focus are all tested, but no screen reader has been run
+  against any of it.

@@ -80,7 +80,7 @@ Empty / blank means the subtask has not started or the sub-agent died before its
 ## EPIC EPIC-1 — case-1-upload-and-recipients
 
 - **code:** `EPIC-1`
-- **status:** `TODO`
+- **status:** `DONE` — shipped and verified in a real browser; see `docs/verification.md` §9.
 - **sp:** 65 (18 + 21 + 26; AI-accelerated tracking target 32.5)
 - **services:** `[subproject-a]`
 - **last-checkpoint:**
@@ -92,7 +92,7 @@ Empty / blank means the subtask has not started or the sub-agent died before its
 ### Story EPIC-1-ST-1 — Shared kernel + workspace scaffold + root docs
 
 - **code:** `EPIC-1-ST-1`
-- **status:** `TODO`
+- **status:** `DONE` (`7175318`…`0b8bc27`) — 113 kernel tests, workspace scaffold, root docs.
 - **sp:** 18 (7 subtasks: 3 + 3 + 3 + 3 + 2 + 2 + 2; AI-accelerated 9)
 - **services:** `[subproject-a]`
 - **last-checkpoint:**
@@ -272,7 +272,7 @@ Empty / blank means the subtask has not started or the sub-agent died before its
 ### Story EPIC-1-ST-2 — Backend HTTP service: routes, services, store, server-only config
 
 - **code:** `EPIC-1-ST-2`
-- **status:** `TODO`
+- **status:** `DONE` (`fbbf602`…`fc10fd1`) — 62 route/service tests, AGENTS.md.
 - **sp:** 21 (7 subtasks: 3 + 2 + 4 + 4 + 4 + 3 + 1; AI-accelerated 10.5)
 - **services:** `[subproject-a]`
 - **last-checkpoint:**
@@ -445,7 +445,7 @@ Empty / blank means the subtask has not started or the sub-agent died before its
 ### Story EPIC-1-ST-3 — Frontend: Step 1 upload, Step 2 recipients, API layer, controllers, verification
 
 - **code:** `EPIC-1-ST-3`
-- **status:** `TODO`
+- **status:** `DONE` (`…`…`7e1563e`) — 144 state/controller tests, verification.md.
 - **sp:** 26 (8 subtasks: 3 + 3 + 3 + 4 + 4 + 4 + 3 + 2; AI-accelerated 13)
 - **services:** `[subproject-a]`
 - **last-checkpoint:**
@@ -836,7 +836,7 @@ cheapest to write once. No other Case-1 `dod` changes.
 ## EPIC EPIC-2 — case-2-order-meterai-fields
 
 - **code:** `EPIC-2`
-- **status:** `TODO`
+- **status:** `PARTIAL` — P1, P2 and P3 complete and browser-verified; **P4 deliberately not attempted** (the declared sacrifice, `docs/decisions.md`).
 - **sp:** not estimated — see note
 - **services:** `[subproject-a]`
 - **last-checkpoint:**
@@ -857,7 +857,7 @@ cheapest to write once. No other Case-1 `dod` changes.
 ### Story EPIC-2-ST-1 — P1: e-meterai — dual pricing, dual quota, per-recipient count
 
 - **code:** `EPIC-2-ST-1`
-- **status:** `TODO`
+- **status:** `DONE` (`8d6eb27` kernel, `ad319f8` server, `51e1798` web) — §B7 rows 1–4 verified in a real browser.
 - **services:** `[subproject-a]`
 - **last-checkpoint:**
 - **description:**
@@ -878,7 +878,7 @@ cheapest to write once. No other Case-1 `dod` changes.
 ### Story EPIC-2-ST-2 — P2: signing order mode — steps, contiguity, keyboard reorder
 
 - **code:** `EPIC-2-ST-2`
-- **status:** `TODO`
+- **status:** `DONE` (`6b47061` kernel, `6ee9558` server, `7fc35b9`+`b2025e3`+`b5e6f6f` web) — §B7 rows 5–9; focus preservation asserted and negative-controlled.
 - **services:** `[subproject-a]`
 - **last-checkpoint:**
 - **description:**
@@ -901,7 +901,7 @@ cheapest to write once. No other Case-1 `dod` changes.
 ### Story EPIC-2-ST-3 — P3: Step 3 Place fields + reconciliation invariant
 
 - **code:** `EPIC-2-ST-3`
-- **status:** `TODO`
+- **status:** `DONE` (`3485a67` kernel, `3721013` server, `86151ad` web) — §B7 rows 10–19; six negative controls recorded.
 - **services:** `[subproject-a]`
 - **last-checkpoint:**
 - **description:**
@@ -926,7 +926,7 @@ cheapest to write once. No other Case-1 `dod` changes.
 ### Story EPIC-2-ST-4 — P4 (OPTIONAL): `Send` — preview token + atomic reservation
 
 - **code:** `EPIC-2-ST-4`
-- **status:** `TODO`
+- **status:** `DEFERRED` — not attempted, by decision. §A1 ranks P4 last and does not require it; a named sacrifice beats a half-built `Send`. `Send` renders disabled with that reason on screen. Risk and cost recorded in `docs/decisions.md` → "The sacrificed priority, and the risk".
 - **services:** `[subproject-a]`
 - **last-checkpoint:**
 - **description:**
@@ -951,3 +951,21 @@ cheapest to write once. No other Case-1 `dod` changes.
 - **B7 row 21 — Case-1 regressions.** Upload, duplicate email, signature quota and filename sanitization must still be green. Run the full Case-1 suite at the close of every Case-2 story, not only at the end.
 - **B8 refactor rule.** Before any structural refactor (flat recipient array → step-based structure, or adding the field collection), **write and run the tests that lock in the old behaviour first**, then change it. This is explicitly assessed. Seam shaping reduces how much refactor is left; it does not excuse skipping this.
 - **A6 wrap-up.** Update `README.md`, `AGENTS.md`, `docs/decisions.md`, `docs/verification.md` and the transcript, then commit/tag `case-2`. `docs/decisions.md` must answer: what changed in the Case-1 data structures and why; every self-made assumption; and **which priority was sacrificed and what the risk is**. `docs/verification.md` must separate what was run with output, what is unverified, and what is believed weak.
+
+---
+
+## Board accuracy note (orchestrator, end of Case 2)
+
+Statuses above are maintained at **epic and story level only**. The 25 remaining
+subtask-level `TODO` markers under EPIC-1 are stale, not open work — every one of
+those subtasks shipped, and the per-subtask commit trail is in `git log`
+(Conventional Commits, one commit per subtask, each naming its `EPIC-1-ST-n.m`
+code). The per-subtask flip in the Status update protocol assumed agents editing
+this board as they went; in practice each slice was built by a delegated agent
+that was explicitly forbidden from touching `TASK.md`, to keep the board from
+becoming a merge point between concurrent agents. Trust the story-level status
+and `git log`; treat subtask markers as historical.
+
+Authoritative state at the close of Case 2: `pnpm -r test` = **812 passing**
+(shared 332, server 165, web 315), `pnpm -r typecheck` exit 0, three real-browser
+passes recorded in `docs/verification.md` §12.
