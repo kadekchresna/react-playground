@@ -695,3 +695,373 @@ describe('every Step 2 input has an associated label (PRD §8.12)', () => {
     }
   });
 });
+
+/**
+ * Case 2 §A2 (P2) — the signing order mode, on screen and wired.
+ *
+ * The step arithmetic itself lives in `signing-order.test.ts`, where it is
+ * asserted without a DOM. What is proved here is the half of §A2 that only
+ * exists once the components are mounted: that the mode selector sits above the
+ * list, that `sequential` renders GROUPED with a visible step header, that the
+ * reorder path is four real buttons naming the recipient they move — and above
+ * all §A2.7, that **keyboard focus survives a move**, which is a property of
+ * the rendered tree and cannot be asserted anywhere else.
+ */
+describe('Step 2 signing order (§A2.5–§A2.8, §A3.3)', () => {
+  const sequentialRadio = () =>
+    screen.getByLabelText('One step after another (sequential)') as HTMLInputElement;
+  const parallelRadio = () =>
+    screen.getByLabelText('Everyone at the same time (parallel)') as HTMLInputElement;
+
+  /** Three named recipients on steps `[1,2,3]` — the smallest useful chain. */
+  async function reachSequentialThree(
+    previewHandler?: Parameters<typeof stubApi>[0]['preview'],
+  ): Promise<{ path: string; body?: unknown }[]> {
+    const calls = await reachStepTwo(previewHandler);
+    fireEvent.click(screen.getByRole('button', { name: /Add signer/ }));
+    fireEvent.change(screen.getByLabelText(/Full name for signer 3/), {
+      target: { value: 'Citra Dewi' },
+    });
+    fireEvent.change(screen.getByLabelText(/Email address for Citra Dewi/), {
+      target: { value: 'citra.dewi@example.test' },
+    });
+    fireEvent.click(sequentialRadio());
+    return calls;
+  }
+
+  const stepHeads = (): string[] =>
+    [...document.querySelectorAll('.step-group__number')].map((node) => node.textContent ?? '');
+
+  /** Who is in which step group, read off the rendered tree rather than state. */
+  const groupedNames = (): string[][] =>
+    [...document.querySelectorAll('.step-group')].map((group) =>
+      [...group.querySelectorAll('.signer-row')].map(
+        (row) => (row.querySelector('input[type="text"]') as HTMLInputElement | null)?.value ?? '',
+      ),
+    );
+
+  it('renders the selector ABOVE the recipient list, parallel by default', async () => {
+    await reachStepTwo();
+
+    expect(parallelRadio().checked).toBe(true);
+    expect(sequentialRadio().checked).toBe(false);
+
+    const selector = document.querySelector('.order-mode') as HTMLElement;
+    const list = document.querySelector('.signers') as HTMLElement;
+    // DOCUMENT_POSITION_FOLLOWING: the list comes after the selector.
+    expect(selector.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // §A2: parallel is the Case-1 behaviour, so nothing about steps is rendered.
+    expect(document.querySelectorAll('.step-group')).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: /^Move Rina Halim/ })).toBeNull();
+  });
+
+  it('§A2.5 — sequential groups the rows under a visible step header', async () => {
+    await reachSequentialThree();
+
+    expect(sequentialRadio().checked).toBe(true);
+    expect(stepHeads()).toEqual(['Step 1', 'Step 2', 'Step 3']);
+    expect(groupedNames()).toEqual([['Rina Halim'], ['Budi Santoso'], ['Citra Dewi']]);
+
+    // Each step is a labelled region, so the grouping is announced, not implied.
+    expect(screen.getByRole('region', { name: 'Step 1 — 1 recipient' })).toBeTruthy();
+  });
+
+  it('§A2.2/§A2.5 — a shared step says its members sign in parallel', async () => {
+    await reachSequentialThree();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Merge Citra Dewi into the previous step' }));
+
+    expect(stepHeads()).toEqual(['Step 1', 'Step 2']);
+    expect(groupedNames()).toEqual([['Rina Halim'], ['Budi Santoso', 'Citra Dewi']]);
+    expect(
+      screen.getByText('2 recipients — they sign in parallel within this step'),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('region', { name: 'Step 2 — 2 recipients signing in parallel' }),
+    ).toBeTruthy();
+  });
+
+  it('§A2.6/§A2.7 — every reorder control names the recipient it moves', async () => {
+    await reachSequentialThree();
+
+    for (const label of [
+      'Move Budi Santoso to an earlier step',
+      'Move Budi Santoso to a later step',
+      'Merge Budi Santoso into the previous step',
+      'Merge Budi Santoso into the next step',
+    ]) {
+      expect(screen.getByRole('button', { name: label })).toBeTruthy();
+    }
+    // The keyboard path is not a fallback behind a drag handle: these ARE the
+    // controls, they are native buttons, and nothing in the tree is draggable.
+    expect(document.querySelectorAll('[draggable="true"]')).toHaveLength(0);
+  });
+
+  it('§A2.7 — focus STAYS on the control that moved the row', async () => {
+    await reachSequentialThree();
+
+    const earlier = screen.getByRole('button', { name: 'Move Citra Dewi to an earlier step' });
+    earlier.focus();
+    expect(document.activeElement).toBe(earlier);
+
+    fireEvent.click(earlier);
+
+    // Citra moved from step 3 to a step of her own before Budi's.
+    expect(groupedNames()).toEqual([['Rina Halim'], ['Citra Dewi'], ['Budi Santoso']]);
+
+    // The row changed DOM parent, so this node is NOT the one clicked — which
+    // is exactly why focus has to be restored rather than assumed.
+    const after = screen.getByRole('button', { name: 'Move Citra Dewi to an earlier step' });
+    expect(document.activeElement).toBe(after);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('§A2.7 — focus survives a move that disabled the control it was on', async () => {
+    await reachSequentialThree();
+
+    const earlier = () => screen.getByRole('button', { name: 'Move Citra Dewi to an earlier step' });
+    earlier().focus();
+    fireEvent.click(earlier()); // step 3 -> step 2
+    fireEvent.click(earlier()); // step 2 -> step 1, which is the top of the chain
+
+    expect(groupedNames()).toEqual([['Citra Dewi'], ['Rina Halim'], ['Budi Santoso']]);
+    expect((earlier() as HTMLButtonElement).disabled).toBe(true);
+
+    // Focus falls to the opposite direction on the SAME row, never to <body>.
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Move Citra Dewi to a later step' }),
+    );
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).not.toBe(document.documentElement);
+  });
+
+  it('§A2.7 — a merge keeps focus on the merge control too', async () => {
+    await reachSequentialThree();
+
+    const merge = () => screen.getByRole('button', { name: 'Merge Citra Dewi into the previous step' });
+    merge().focus();
+    fireEvent.click(merge());
+
+    expect(groupedNames()).toEqual([['Rina Halim'], ['Budi Santoso', 'Citra Dewi']]);
+    expect(document.activeElement).toBe(merge());
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('§A2.8 — reordering loses nothing the user entered', async () => {
+    await reachSequentialThree();
+
+    // Put something distinctive on every row, including a box left mid-edit.
+    fireEvent.change(screen.getByLabelText(/^Signatures for Citra Dewi$/), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'More eMeterai for Rina Halim' }));
+    fireEvent.change(screen.getByLabelText(/Full name for Budi Santoso/), {
+      target: { value: 'Budi  Santoso ' },
+    });
+
+    // Scoped INSIDE the step groups: the column-header strip also carries
+    // `.signer-row`, and it holds no inputs.
+    const snapshot = () =>
+      [...document.querySelectorAll('.step-group .signer-row')].map((row) =>
+        [...row.querySelectorAll('input')].map((input) => (input as HTMLInputElement).value),
+      );
+
+    // Read in STEP order before and after, following the row that moves.
+    const before = snapshot();
+    fireEvent.click(screen.getByRole('button', { name: 'Move Citra Dewi to an earlier step' }));
+    const after = snapshot();
+
+    // Rina stays first; Citra and Budi swap places, each carrying its values.
+    expect(before[0]).toEqual(after[0]);
+    expect(before[2]).toEqual(after[1]); // Citra, moved up
+    expect(before[1]).toEqual(after[2]); // Budi, pushed down
+    // Spelled out, because "lost nothing" is the claim being made.
+    expect((screen.getByLabelText(/^Signatures for Citra Dewi$/) as HTMLInputElement).value).toBe('4');
+    expect((screen.getByLabelText(/^eMeterai for Rina Halim$/) as HTMLInputElement).value).toBe('1');
+    // The accessible name is trimmed and whitespace-normalized; the VALUE is
+    // not touched, which is the §A2.8 claim.
+    expect(
+      (screen.getByLabelText(/Full name for Budi Santoso/) as HTMLInputElement).value,
+    ).toBe('Budi  Santoso ');
+  });
+
+  it('§A3.3 — a meterai carrier moved out of step 1 is marked on THAT row', async () => {
+    await reachSequentialThree();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More eMeterai for Rina Halim' }));
+    // Step 1 is where a duty stamp belongs, so nothing is wrong yet.
+    expect(screen.queryByText(/eMeterai in step/)).toBeNull();
+    expect(continueButton().disabled).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Rina Halim to a later step' }));
+
+    const reason =
+      'eMeterai in step 2 — a duty stamp is affixed before the signing chain starts, ' +
+      'so move this recipient to step 1 or set their eMeterai to 0';
+
+    const rina = screen.getByRole('group', { name: 'Recipient 1' });
+    expect(within(rina).getByText(reason)).toBeTruthy();
+    expect(screen.getByLabelText(/^eMeterai for Rina Halim$/).getAttribute('aria-invalid')).toBe('true');
+    // The clean rows stay clean — the row is marked, not the form (§B7 row 4's rule).
+    expect(screen.getByLabelText(/^eMeterai for Budi Santoso$/).getAttribute('aria-invalid')).toBeNull();
+
+    const button = continueButton();
+    expect(button.disabled).toBe(true);
+    expect(describedByText(button)).toContain(reason);
+  });
+
+  it('§A3.3 — merging the carrier back into step 1 clears it', async () => {
+    await reachSequentialThree();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More eMeterai for Rina Halim' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Rina Halim to a later step' }));
+    expect(continueButton().disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Merge Rina Halim into the previous step' }));
+
+    expect(screen.queryByText(/eMeterai in step/)).toBeNull();
+    expect(continueButton().disabled).toBe(false);
+  });
+
+  it('§B4 — the payload carries order_mode and a step per recipient in sequential', async () => {
+    const calls = await reachSequentialThree(() =>
+      json(200, {
+        order_mode: 'sequential',
+        steps: [
+          { step: 1, recipient_emails: ['rina.halim@example.test'] },
+          { step: 2, recipient_emails: ['budi.santoso@example.test'] },
+          { step: 3, recipient_emails: ['citra.dewi@example.test'] },
+        ],
+        recipient_count: 3,
+        total_signatures: 4,
+        total_meterai: 0,
+        price: { signature: '5000.00', meterai: '10000.10' },
+        charges: { signature: '20000.00', meterai: '0.00' },
+        total_charge: '20000.00',
+        quota: { signature: 8, meterai: 3 },
+        quota_remaining: { signature: 4, meterai: 3 },
+      }),
+    );
+
+    fireEvent.click(continueButton());
+    await screen.findByText('Server-confirmed');
+
+    const body = calls.at(-1)?.body as {
+      order_mode: string;
+      recipients: Record<string, unknown>[];
+    };
+    expect(Object.keys(body)).toEqual(['order_mode', 'recipients']);
+    expect(body.order_mode).toBe('sequential');
+    expect(body.recipients.map((r) => r.step)).toEqual([1, 2, 3]);
+    for (const recipient of body.recipients) {
+      expect(Object.keys(recipient).sort()).toEqual([
+        'email',
+        'meterai_count',
+        'name',
+        'signature_count',
+        'step',
+      ]);
+    }
+  });
+
+  it('§B7 row 9 — switching back to parallel stops sending step entirely', async () => {
+    const calls = await reachSequentialThree(() =>
+      json(200, {
+        order_mode: 'parallel',
+        steps: [
+          {
+            step: 1,
+            recipient_emails: [
+              'rina.halim@example.test',
+              'budi.santoso@example.test',
+              'citra.dewi@example.test',
+            ],
+          },
+        ],
+        recipient_count: 3,
+        total_signatures: 4,
+        total_meterai: 0,
+        price: { signature: '5000.00', meterai: '10000.10' },
+        charges: { signature: '20000.00', meterai: '0.00' },
+        total_charge: '20000.00',
+        quota: { signature: 8, meterai: 3 },
+        quota_remaining: { signature: 4, meterai: 3 },
+      }),
+    );
+
+    // Arrange a chain first, so there IS a step that could leak.
+    fireEvent.click(screen.getByRole('button', { name: 'Merge Citra Dewi into the previous step' }));
+    fireEvent.click(parallelRadio());
+
+    expect(document.querySelectorAll('.step-group')).toHaveLength(0);
+    fireEvent.click(continueButton());
+    await screen.findByText('Server-confirmed');
+
+    const serialized = JSON.stringify(calls.at(-1)?.body);
+    expect(serialized).not.toContain('step');
+    expect(JSON.parse(serialized).order_mode).toBe('parallel');
+  });
+
+  it('a mode change invalidates a server-confirmed total (§8.10, staleness guard)', async () => {
+    await reachStepTwo(() =>
+      json(200, {
+        order_mode: 'parallel',
+        steps: [{ step: 1, recipient_emails: ['rina.halim@example.test', 'budi.santoso@example.test'] }],
+        recipient_count: 2,
+        total_signatures: 3,
+        total_meterai: 0,
+        price: { signature: '5000.00', meterai: '10000.10' },
+        charges: { signature: '15000.00', meterai: '0.00' },
+        total_charge: '15000.00',
+        quota: { signature: 8, meterai: 3 },
+        quota_remaining: { signature: 5, meterai: 3 },
+      }),
+    );
+
+    fireEvent.click(continueButton());
+    await screen.findByText('Server-confirmed');
+
+    fireEvent.click(sequentialRadio());
+
+    expect(screen.queryByText('Server-confirmed')).toBeNull();
+    expect(screen.getByText('Estimate')).toBeTruthy();
+  });
+
+  it('a step change invalidates a server-confirmed total too', async () => {
+    await reachSequentialThree(() =>
+      json(200, {
+        order_mode: 'sequential',
+        steps: [
+          { step: 1, recipient_emails: ['rina.halim@example.test'] },
+          { step: 2, recipient_emails: ['budi.santoso@example.test'] },
+          { step: 3, recipient_emails: ['citra.dewi@example.test'] },
+        ],
+        recipient_count: 3,
+        total_signatures: 4,
+        total_meterai: 0,
+        price: { signature: '5000.00', meterai: '10000.10' },
+        charges: { signature: '20000.00', meterai: '0.00' },
+        total_charge: '20000.00',
+        quota: { signature: 8, meterai: 3 },
+        quota_remaining: { signature: 4, meterai: 3 },
+      }),
+    );
+
+    fireEvent.click(continueButton());
+    await screen.findByText('Server-confirmed');
+
+    // Nothing about WHO signs changed — only the order. The guard still fires.
+    fireEvent.click(screen.getByRole('button', { name: 'Merge Citra Dewi into the previous step' }));
+
+    expect(screen.queryByText('Server-confirmed')).toBeNull();
+    expect(screen.getByText('Estimate')).toBeTruthy();
+  });
+
+  it('the mode radios keep their label association (PRD §8.12)', async () => {
+    await reachStepTwo();
+    for (const radio of document.querySelectorAll('.order-mode input')) {
+      expect(document.querySelector(`label[for="${radio.id}"]`)).not.toBeNull();
+    }
+    // Step 3 is still locked: P2 adds no navigation (ADR-005).
+    expect(document.querySelectorAll('.stepper__pill')[2]?.getAttribute('aria-disabled')).toBe('true');
+  });
+});
