@@ -38,6 +38,32 @@
  * performed (the row is now at the end of the chain), focus falls to the
  * opposite-direction control and then to the row itself, so there is no path
  * where a keyboard user is dropped onto `<body>`.
+ *
+ * **§A4 — `Continue` now leads somewhere, and it is TWO-PHASE.**
+ *
+ * Case 1 made this screen a terminal state: the server confirmed the figures
+ * and the flow stopped, because Step 3 was out of scope (LD-13, ADR-005). Step
+ * 3 is real now, so `Continue` has somewhere to go — but the server's answer is
+ * still the gate, so the button does both jobs in order rather than one instead
+ * of the other:
+ *
+ *   1. no server answer for THIS payload yet -> ask for one (the Case-1
+ *      behaviour, byte for byte, including the summary swapping to the server's
+ *      figures and the flow staying on this screen);
+ *   2. the server has confirmed this exact payload -> go to Step 3.
+ *
+ * The visible gate text says which of the two the next press will do, so the
+ * second press is never a surprise. Editing anything in between changes the
+ * payload key, which makes the confirmation unreadable (seam S5) and puts the
+ * button back in phase 1 — so a stale confirmation cannot be carried forward
+ * and `Continue` cannot advance on figures the server never saw.
+ *
+ * **`fields` is NOT part of this screen's payload** (§B4). A Step-2 preview
+ * submits no field collection at all, which is what makes the whole
+ * reconciliation invariant vacuous for it; sending `fields: []` from here would
+ * mean "a real Step 3 with nothing placed" and would turn every working Case-1,
+ * P1 and P2 preview into `422 FIELD_COUNT_MISMATCH`. The key the panel reads
+ * through omits it for exactly the same reason.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
@@ -97,6 +123,8 @@ export interface RecipientsStepProps {
   readonly state: RecipientsState;
   readonly dispatch: Dispatch<RecipientsAction>;
   readonly onBack: () => void;
+  /** §A4 — phase 2 of `Continue`, once the server has confirmed this payload. */
+  readonly onContinueToFields: () => void;
   readonly previewTransport?: PreviewTransport;
 }
 
@@ -105,6 +133,7 @@ export function RecipientsStep({
   state,
   dispatch,
   onBack,
+  onContinueToFields,
   previewTransport = httpTransport,
 }: RecipientsStepProps): JSX.Element {
   // ---------------------------------------------------------------- preview
@@ -246,7 +275,19 @@ export function RecipientsStep({
     });
   }
 
+  /*
+    §A4 — phase 2 is unlocked by `confirmed`, which is only non-null for the
+    CURRENT payload key. That is the whole guard: there is no separate "is the
+    confirmation still valid" flag to keep in sync, because reading the
+    confirmation at all requires the key to still match (seam S5).
+  */
+  const readyToAdvance = confirmed !== null;
+
   const onContinue = () => {
+    if (readyToAdvance) {
+      onContinueToFields();
+      return;
+    }
     void controller.request(envelope.envelope_id, recipients, state.orderMode);
   };
 
@@ -436,7 +477,11 @@ export function RecipientsStep({
           id={CONTINUE_REASON_ID}
         >
           {canContinue ? (
-            <li>Ready. Continue asks the server for the authoritative total.</li>
+            <li>
+              {readyToAdvance
+                ? 'Server-confirmed. Continue goes on to Step 3, where the boxes are placed.'
+                : 'Ready. Continue asks the server for the authoritative total.'}
+            </li>
           ) : (
             blockers.map((reason) => <li key={reason}>{reason}</li>)
           )}

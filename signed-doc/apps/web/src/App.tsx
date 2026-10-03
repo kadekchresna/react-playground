@@ -9,20 +9,36 @@
  * `Back` from Step 2 finds the document still uploaded (the step components
  * unmount; this one does not).
  *
- * Seam S1: the step is `1 | 2 | 3`, never a boolean, and `3` is unreachable in
- * Case 1 because `goTo` refuses it. Case 2 unlocks Step 3 by deleting that one
- * guard, not by changing the type of the state.
+ * Seam S1: the step is `1 | 2 | 3`, never a boolean, and `3` was unreachable in
+ * Case 1 because `MAX_REACHABLE_STEP` was `2`. Case 2 §A4 unlocked Step 3 by
+ * raising that one constant — no state changed type, and `goTo` is unchanged.
+ *
+ * **Case 2 §A4 adds a second long-lived reducer: the placed fields.** They live
+ * HERE, beside the recipients and for the same reason: going `Back` to Step 2
+ * to fix a count, or to Step 1 to look at the document, must not destroy a box
+ * the user placed (§A2.8 says so for a reorder; §A4.13 says so for a count
+ * change). The step components unmount; this one does not.
+ *
+ * **The two reducers do not know about each other, and that IS §A4.13.** No
+ * recipient action touches the field list, so lowering a count below the number
+ * of placed boxes, or deleting a recipient who owns some (§B7.13), cannot
+ * delete anything. The mismatch is reported by the kernel's `reconcileFields`
+ * in Step 3's render and flagged on screen for the user to resolve. "Flag,
+ * don't auto-drop" is therefore a property of the state's SHAPE rather than a
+ * rule a reducer has to remember.
  */
 
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { validateFileMeta } from '@signed-doc/shared';
 
 import { ApiRequestError, UNREACHABLE_MESSAGE, isCancellation } from './api/client.js';
 import { uploadEnvelope } from './api/upload.js';
 import { MAX_REACHABLE_STEP, Stepper, type Step } from './components/Stepper.js';
+import { FieldsStep } from './features/fields/FieldsStep.js';
+import { createFieldsState, fieldsReducer } from './features/fields/fields-reducer.js';
 import { RecipientsStep } from './features/recipients/RecipientsStep.js';
-import { recipientsReducer } from './features/recipients/recipients-reducer.js';
+import { recipientsReducer, toRecipientInputs } from './features/recipients/recipients-reducer.js';
 import { createSeedState } from './features/recipients/seed.js';
 import { UploadStep } from './features/upload/UploadStep.js';
 import {
@@ -46,8 +62,10 @@ export function App(): JSX.Element {
   // Held here, not in `RecipientsStep`, so `Back` and forward keep every typed
   // value (LD-15 seeds the initial rows; the server never assumes recipients).
   const [recipients, dispatchRecipients] = useReducer(recipientsReducer, undefined, createSeedState);
+  // §A4 — the placed boxes, held here so no navigation can lose one.
+  const [fields, dispatchFields] = useReducer(fieldsReducer, undefined, createFieldsState);
 
-  // Seam S1 / ADR-005: the one guard that keeps Step 3 unreachable.
+  // Seam S1: the bound on how far the flow goes. Case 2 raised it to 3.
   const goTo = useCallback((next: Step) => {
     if (next > MAX_REACHABLE_STEP) return;
     setStep(next);
@@ -121,10 +139,14 @@ export function App(): JSX.Element {
   const envelope = uploadedEnvelope(upload);
 
   // Losing the envelope (removed or replaced) must not strand the user on a
-  // Step 2 that has no document behind it.
+  // step that has no document behind it — Step 3 no less than Step 2.
   useEffect(() => {
-    if (envelope === null && step === 2) setStep(1);
+    if (envelope === null && step !== 1) setStep(1);
   }, [envelope, step]);
+
+  // The wire projection of the rows, which is what the field rules compare
+  // against. Computed once here rather than twice in two children.
+  const recipientInputs = useMemo(() => toRecipientInputs(recipients), [recipients]);
 
   return (
     <div className="app">
@@ -138,12 +160,22 @@ export function App(): JSX.Element {
           onRetry={() => dispatchUpload({ type: 'RETRY' })}
           onContinue={() => goTo(2)}
         />
-      ) : (
+      ) : step === 2 ? (
         <RecipientsStep
           envelope={envelope}
           state={recipients}
           dispatch={dispatchRecipients}
           onBack={() => goTo(1)}
+          onContinueToFields={() => goTo(3)}
+        />
+      ) : (
+        <FieldsStep
+          envelope={envelope}
+          recipients={recipientInputs}
+          orderMode={recipients.orderMode}
+          state={fields}
+          dispatch={dispatchFields}
+          onBack={() => goTo(2)}
         />
       )}
     </div>

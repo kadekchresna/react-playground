@@ -94,18 +94,34 @@ afterEach(() => {
 });
 
 describe('stepper (ADR-005, LD-02, seam S1)', () => {
-  it('renders three pills with Place fields locked, non-focusable and not navigable', () => {
+  /*
+    Case 2 §A4 SUPERSEDES one clause of the Case-1 assertion this replaces:
+    pill 3 was `aria-disabled="true"` with the copy `(locked in this exercise)`,
+    because Step 3 was out of scope. It is a real step now, so a lock would be a
+    lie. Every other clause is kept verbatim and the display-only one is
+    STRENGTHENED from pill 3 alone to all three pills — the stepper is still not
+    a navigation control, which was the point of the original test, and that is
+    now asserted for the whole of it rather than for the one pill that happened
+    to be locked.
+  */
+  it('renders three display-only pills: none focusable, none navigable, none locked', () => {
     stubApi({});
     const { container } = render(<App />);
 
     const pills = container.querySelectorAll('.stepper__pill');
     expect(pills).toHaveLength(3);
 
-    const locked = pills[2] as HTMLElement;
-    expect(locked.textContent).toContain('Place fields');
-    expect(locked.getAttribute('aria-disabled')).toBe('true');
-    expect(locked.tagName).toBe('LI'); // no button, no link, no handler
-    expect(locked.querySelectorAll('a, button, input, [tabindex]')).toHaveLength(0);
+    const third = pills[2] as HTMLElement;
+    expect(third.textContent).toContain('Place fields');
+
+    for (const pill of pills) {
+      expect(pill.tagName).toBe('LI'); // no button, no link, no handler
+      expect(pill.querySelectorAll('a, button, input, [tabindex]')).toHaveLength(0);
+      // §A4: Step 3 is reachable now, so nothing in the stepper is disabled.
+      expect(pill.getAttribute('aria-disabled')).toBeNull();
+    }
+
+    expect(container.textContent).not.toContain('locked in this exercise');
   });
 
   it('marks the active pill with aria-current="step" and no other', () => {
@@ -565,9 +581,17 @@ describe('Step 2 Continue — the server is the authority (PRD §8.9, LD-13)', (
 
     expect(screen.getByText('Rp15.000,00')).toBeTruthy();
     expect(screen.getByText('5 of 8')).toBeTruthy();
-    // ADR-005 / LD-13: no navigation, and Step 3 stays locked.
+    /*
+      LD-13: the FIRST press of `Continue` asks the server and does not
+      navigate. Case 2 §A4 made Step 3 real, so "pill 3 is locked" is no longer
+      the way to say that — the equivalent and stronger statement is that the
+      flow is still ON Step 2, which is asserted by the heading AND by which
+      pill is `aria-current`. Advancing is the SECOND press (see §A4 below).
+    */
     expect(screen.getByRole('heading', { name: 'Who signs it?' })).toBeTruthy();
-    expect(document.querySelectorAll('.stepper__pill')[2]?.getAttribute('aria-disabled')).toBe('true');
+    expect(document.querySelector('[aria-current="step"]')?.textContent).toContain(
+      'Set recipients',
+    );
   });
 
   it('drops the server-confirmed label as soon as the data changes (§8.10)', async () => {
@@ -1061,7 +1085,10 @@ describe('Step 2 signing order (§A2.5–§A2.8, §A3.3)', () => {
     for (const radio of document.querySelectorAll('.order-mode input')) {
       expect(document.querySelector(`label[for="${radio.id}"]`)).not.toBeNull();
     }
-    // Step 3 is still locked: P2 adds no navigation (ADR-005).
-    expect(document.querySelectorAll('.stepper__pill')[2]?.getAttribute('aria-disabled')).toBe('true');
+    // P2 adds no navigation of its own. Case 2 §A4 unlocked Step 3, so the
+    // assertion is now "we are still on Step 2" rather than "pill 3 is locked".
+    expect(document.querySelector('[aria-current="step"]')?.textContent).toContain(
+      'Set recipients',
+    );
   });
 });

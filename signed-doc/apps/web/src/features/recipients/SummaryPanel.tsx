@@ -24,8 +24,11 @@
  * - **Estimate** (default). The frontend's responsive guess, labelled as such.
  * - **Server-confirmed** (LD-13). After `Continue` returns `200`, the server's
  *   own counts, prices, charges, total and both `quota_remaining` figures
- *   replace the estimate and are labelled as final. No navigation happens
- *   (ADR-005).
+ *   replace the estimate and are labelled as final. Case 1 stopped there,
+ *   because Step 3 was out of scope; Case 2 §A4 makes it a real step, so the
+ *   confirmed note now says that the NEXT press of `Continue` goes on to place
+ *   the boxes. The swap itself still happens without navigating — this panel
+ *   appears, in full, on the screen the user is already on.
  *
  * Remaining quota is clamped at 0 by `quotaRemaining`, and each excess is shown
  * separately. Those messages are the `aria-describedby` targets of the disabled
@@ -183,8 +186,9 @@ export function SummaryPanel({
       {confirmed ? (
         <p className="summary__note">
           These are the server&rsquo;s figures and they are final; the numbers above the line were
-          only an estimate. Step 3 (Place fields) is outside this exercise, so the flow stops
-          here.
+          only an estimate. <code>Continue</code> now goes on to Step 3, where the signature and
+          eMeterai boxes are placed on the document — and where the number of boxes has to match
+          these counts exactly.
         </p>
       ) : (
         <p className="summary__note">

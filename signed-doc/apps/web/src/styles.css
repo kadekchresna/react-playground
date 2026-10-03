@@ -112,19 +112,11 @@ a:focus-visible,
   background: var(--success-fg);
 }
 
-/* ADR-005: the locked pill reads as deliberately scoped out, not unfinished. */
-.stepper__pill[data-state='locked'] {
-  background: var(--surface);
-  border-style: dashed;
-  border-color: var(--dash);
-  color: var(--muted-soft);
-  opacity: 0.75;
-}
-
-.stepper__lock {
-  font-size: 12px;
-  font-style: italic;
-}
+/*
+ * Case 2 §A4: the `locked` pill state and its `(locked in this exercise)` label
+ * are gone with the thing they described — Step 3 is a real step now, so there
+ * is no fourth pill state and no dead rule for one here.
+ */
 
 /* ------------------------------------------------------------------ board */
 
@@ -654,4 +646,357 @@ input[aria-invalid='true'] {
   margin: 4px 0 0;
   font-size: 12px;
   opacity: 0.85;
+}
+
+/* ------------------------------------------------- Step 3: place fields (§A4) */
+
+/*
+ * Board 3's three columns. PRD §3/§8.12 keep exact colours, spacing, fonts,
+ * icons and responsive layout out of assessment, so this is the mockup's
+ * STRUCTURE — left panel, document canvas, progress panel — and nothing more.
+ * The only measurements that matter are the ones that come from §B2, and those
+ * are set inline from the kernel's own constants rather than written here.
+ */
+.board--fields {
+  max-width: none;
+}
+
+.place-fields {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+/* ----------------------------------------------------- left: signer + palette */
+
+.palette {
+  width: 260px;
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.palette__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.palette__legend {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.palette__select {
+  height: 44px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+}
+
+.palette__hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.palette__hint--owner {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.palette__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.palette__button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 12px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.palette__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  border-style: dashed;
+  border-color: var(--dash);
+}
+
+.palette__button-label {
+  font-weight: 600;
+}
+
+.palette__button-size {
+  font-size: 12px;
+  color: var(--muted-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.palette__reason {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+/* -------------------------------------------------------- centre: the document */
+
+.place-fields__canvas {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.place-fields__canvas-bar {
+  align-self: flex-end;
+}
+
+.place-fields__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* §B2 — the page box. Its dimensions and padding are set inline from the kernel. */
+.doc-page {
+  background: var(--white);
+  border: 1px solid var(--rule);
+  box-shadow: 0 1px 3px rgba(20, 24, 35, 0.06);
+  max-width: 100%;
+}
+
+/* §B2 — the content area `x`/`y` are relative to. Sized inline, positioned here. */
+.doc-content:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.doc-content__title {
+  margin: 0 0 12px;
+  font-size: 24px;
+}
+
+.doc-content__body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------ one placed box */
+
+.field-box {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px dashed var(--accent);
+  border-radius: 6px;
+  background: rgba(75, 78, 222, 0.08);
+  box-sizing: border-box;
+  overflow: visible;
+  text-align: center;
+}
+
+.field-box:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* §A4.3/§A4.13: the flags change the outline too, but the words are the signal. */
+.field-box[data-flag='excess'],
+.field-box[data-flag='orphan'] {
+  border-style: solid;
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.field-box__kind {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.field-box[data-flag] .field-box__kind {
+  color: var(--danger);
+}
+
+.field-box__owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+}
+
+.field-box__initials {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--white);
+  border: 1px solid var(--rule);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.field-box__name {
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field-box__flag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--danger);
+}
+
+.field-box__remove {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  background: var(--white);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ------------------------------------------- right: reconciliation (§A4.6) */
+
+.reconcile {
+  width: 300px;
+  flex: 0 0 300px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--surface);
+}
+
+.reconcile__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.reconcile__head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.reconcile__badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--danger);
+}
+
+.reconcile__badge--ok {
+  color: var(--success-fg);
+}
+
+.reconcile__totals {
+  margin: 8px 0 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.reconcile__rows,
+.reconcile__notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reconcile__row {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.reconcile__line {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.reconcile__row[data-state='short'] .reconcile__line,
+.reconcile__row[data-state='excess'] .reconcile__line {
+  color: var(--danger);
+}
+
+.reconcile__marker {
+  display: block;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.reconcile__marker--ok {
+  color: var(--success-fg);
+}
+
+.reconcile__orphans {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+  background: var(--danger-bg);
+}
+
+.reconcile__orphans-head,
+.reconcile__orphans-body {
+  margin: 0;
+  font-size: 12px;
+}
+
+.reconcile__orphans-head {
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.reconcile__note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
 }

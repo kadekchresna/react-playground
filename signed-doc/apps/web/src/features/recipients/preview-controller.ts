@@ -3,15 +3,22 @@
  *
  * ## Seam S5 — the guard keys on a payload hash, not on a request counter
  *
- * `previewKey` reduces the preview input — the envelope id, the order mode and
- * the exact `{ name, email, signature_count, meterai_count, step }` tuples, in
- * order — to one canonical string. Case 2 §A3 put `meterai_count` on the wire
- * and §A2 put the mode and `step` there, so all of them are part of the hashed
- * input: switching mode, moving a recipient to another step or merging two
- * steps invalidates a pending preview exactly as changing a signature count
- * does, and for the same structural reason rather than by a second rule someone
- * has to remember. `step` is hashed only in `sequential`, because in `parallel`
- * it is not part of the input at all (§B4).
+ * `previewKey` reduces the preview input — the envelope id, the order mode, the
+ * exact `{ name, email, signature_count, meterai_count, step }` tuples and the
+ * placed `fields`, in order — to one canonical string. Case 2 §A3 put
+ * `meterai_count` on the wire, §A2 put the mode and `step` there and §A4 put
+ * `fields` there, so all of them are part of the hashed input: switching mode,
+ * moving a recipient to another step, merging two steps, placing a box, moving
+ * a box or removing one invalidates a pending preview exactly as changing a
+ * signature count does, and for the same structural reason rather than by a
+ * second rule someone has to remember. `step` is hashed only in `sequential`,
+ * because in `parallel` it is not part of the input at all (§B4).
+ *
+ * **An ABSENT field collection and an EMPTY one hash differently.** §B4 makes
+ * those two different payloads — absent is the Step-2 preview, where the
+ * reconciliation invariant is vacuous, and `[]` is a real Step 3 with nothing
+ * placed, which the server refuses. The key mirrors the wire exactly, so a
+ * Step-2 answer can never be read back as a Step-3 one.
  * That string is stored beside the last result, and a result is only
  * ever readable through `resultFor(key)`, which compares. Three consequences:
  *
@@ -52,6 +59,7 @@ import {
   DEFAULT_ORDER_MODE,
   stepOf,
   type ChargePreviewResponse,
+  type FieldInput,
   type OrderMode,
   type RecipientInput,
   type ValidationFailureDetails,
@@ -59,11 +67,20 @@ import {
 
 import { ApiRequestError, UNREACHABLE_MESSAGE, isCancellation } from '../../api/client.js';
 
+/**
+ * `fields` comes LAST, after the signal, which is deliberate: every Step-2
+ * caller and every existing transport is a four-parameter function, and a
+ * trailing optional parameter leaves all of them valid. The alternative —
+ * slotting `fields` in beside `orderMode` — would silently shift `signal` by one
+ * position in code the compiler cannot help with (a four-arg transport would
+ * still typecheck, and would read the field list as its abort signal).
+ */
 export type PreviewTransport = (
   envelopeId: string,
   recipients: readonly RecipientInput[],
   orderMode: OrderMode,
   signal: AbortSignal,
+  fields?: readonly FieldInput[],
 ) => Promise<ChargePreviewResponse>;
 
 export type PreviewStatus = 'idle' | 'loading' | 'confirmed' | 'error';
@@ -98,6 +115,7 @@ export function previewKey(
   envelopeId: string,
   recipients: readonly RecipientInput[],
   orderMode: OrderMode = DEFAULT_ORDER_MODE,
+  fields?: readonly FieldInput[],
 ): string {
   return JSON.stringify([
     envelopeId,
@@ -112,6 +130,16 @@ export function previewKey(
       // not even sent.
       orderMode === 'sequential' ? stepOf(r) : null,
     ]),
+    /*
+      §A4 — the placed boxes. `null` for "no collection submitted" and an array
+      (possibly empty) for a real Step 3, which is exactly the distinction §B4
+      draws on the wire. The tuple form is used for the same reason the
+      recipient one is: it is independent of property order and of any key a
+      field object happens to carry beyond the six §B3 defines.
+    */
+    fields === undefined
+      ? null
+      : fields.map((f) => [f.id, f.kind, f.recipient_email, f.page, f.x, f.y]),
   ]);
 }
 
@@ -136,6 +164,8 @@ export class PreviewController {
     envelopeId: string;
     recipients: readonly RecipientInput[];
     orderMode: OrderMode;
+    /** `undefined` is Step 2's "no collection submitted" and is preserved. */
+    fields?: readonly FieldInput[];
   } | null = null;
 
   constructor(transport: PreviewTransport) {
@@ -212,8 +242,9 @@ export class PreviewController {
     envelopeId: string,
     recipients: readonly RecipientInput[],
     orderMode: OrderMode = DEFAULT_ORDER_MODE,
+    fields?: readonly FieldInput[],
   ): Promise<void> {
-    const key = previewKey(envelopeId, recipients, orderMode);
+    const key = previewKey(envelopeId, recipients, orderMode, fields);
     // The same mode-dependent projection `toWireRecipients` makes, applied here
     // too so the key, the retry intent and the body all describe one payload.
     const payload = recipients.map((r) => {
@@ -226,7 +257,7 @@ export class PreviewController {
       return orderMode === 'sequential' ? { ...wire, step: stepOf(r) } : wire;
     });
 
-    this.#lastIntent = { envelopeId, recipients: payload, orderMode };
+    this.#lastIntent = { envelopeId, recipients: payload, orderMode, fields };
 
     // Supersede whatever was in flight, whatever its key.
     this.#inFlight?.controller.abort();
@@ -237,7 +268,13 @@ export class PreviewController {
     this.#emit({ status: 'loading', key, result: null, error: null });
 
     try {
-      const result = await this.#transport(envelopeId, payload, orderMode, controller.signal);
+      const result = await this.#transport(
+        envelopeId,
+        payload,
+        orderMode,
+        controller.signal,
+        fields,
+      );
       // The guard. `run` is the current request only while nothing has
       // superseded or abandoned it, so an out-of-order arrival for older data
       // is dropped right here — regardless of what the transport chose to do
@@ -257,7 +294,7 @@ export class PreviewController {
   async retry(): Promise<void> {
     const intent = this.#lastIntent;
     if (!intent) return;
-    await this.request(intent.envelopeId, intent.recipients, intent.orderMode);
+    await this.request(intent.envelopeId, intent.recipients, intent.orderMode, intent.fields);
   }
 
   /** Abort anything in flight and forget the result. */

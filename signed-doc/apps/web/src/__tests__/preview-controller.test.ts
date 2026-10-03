@@ -13,7 +13,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ChargePreviewResponse, RecipientInput } from '@signed-doc/shared';
+import type { ChargePreviewResponse, FieldInput, RecipientInput } from '@signed-doc/shared';
 
 import { ApiRequestError, UNREACHABLE_MESSAGE } from '../api/client.js';
 import {
@@ -57,6 +57,13 @@ function response(totalSignatures: number, totalCharge: string, remaining: numbe
     recipient_count: 2,
     total_signatures: totalSignatures,
     total_meterai: 0,
+    /*
+      §B4 — P3 made `field_count` a REQUIRED key of every `200`, including for a
+      payload that sent no `fields` at all, where it is `0`. These fixtures are
+      Step-2 previews (no collection submitted), so `0` is the honest value: the
+      server read the same empty collection the client sent.
+    */
+    field_count: 0,
     price: { signature: '5000.00', meterai: '10000.10' },
     charges: { signature: totalCharge, meterai: '0.00' },
     total_charge: totalCharge,
@@ -130,6 +137,109 @@ describe('previewKey (seam S5)', () => {
       { email: 'budi.santoso@example.test', signature_count: 1, name: 'Budi Santoso', meterai_count: 0 },
     ];
     expect(previewKey(ENVELOPE, reordered)).toBe(previewKey(ENVELOPE, SEEDED));
+  });
+});
+
+/**
+ * Case 2 §A4 / §B4 put the placed boxes on the wire, so they are part of the
+ * hashed input. Everything below is the FIELD half of the same guard the block
+ * above pins for recipients — one mechanism, not a second rule.
+ */
+describe('previewKey with fields (§A4, §B4)', () => {
+  const BOX: FieldInput = {
+    id: 'f0',
+    kind: 'signature',
+    recipient_email: 'rina.halim@example.test',
+    page: 1,
+    x: 64,
+    y: 224,
+  };
+  const SECOND: FieldInput = { ...BOX, id: 'f1', y: 340 };
+
+  it('distinguishes NO collection from an EMPTY one', () => {
+    // §B4: absent is the Step-2 preview and makes the field rules vacuous; `[]`
+    // is a real Step 3 with nothing placed and the server refuses it. A key
+    // that collapsed the two would let a Step-2 answer be read on Step 3.
+    expect(previewKey(ENVELOPE, SEEDED, 'parallel')).not.toBe(
+      previewKey(ENVELOPE, SEEDED, 'parallel', []),
+    );
+    // And the Step-2 key is unchanged by P3 existing: the default still omits.
+    expect(previewKey(ENVELOPE, SEEDED, 'parallel')).toBe(previewKey(ENVELOPE, SEEDED));
+  });
+
+  it('changes when a box is placed, moved or removed', () => {
+    const none = previewKey(ENVELOPE, SEEDED, 'parallel', []);
+    const one = previewKey(ENVELOPE, SEEDED, 'parallel', [BOX]);
+    const two = previewKey(ENVELOPE, SEEDED, 'parallel', [BOX, SECOND]);
+
+    expect(one).not.toBe(none); // placed
+    expect(two).not.toBe(one); // placed again
+    expect(previewKey(ENVELOPE, SEEDED, 'parallel', [{ ...BOX, x: 72 }])).not.toBe(one); // moved
+    expect(previewKey(ENVELOPE, SEEDED, 'parallel', [SECOND])).not.toBe(two); // removed
+  });
+
+  it('changes when any one property of a box changes', () => {
+    const base = previewKey(ENVELOPE, SEEDED, 'parallel', [BOX]);
+    const variants: readonly FieldInput[] = [
+      { ...BOX, id: 'f9' },
+      { ...BOX, kind: 'meterai' },
+      { ...BOX, recipient_email: 'budi.santoso@example.test' },
+      { ...BOX, page: 2 },
+      { ...BOX, x: 65 },
+      { ...BOX, y: 225 },
+    ];
+    for (const variant of variants) {
+      expect(previewKey(ENVELOPE, SEEDED, 'parallel', [variant])).not.toBe(base);
+    }
+  });
+
+  it('is order-sensitive across the list and order-insensitive within a box', () => {
+    expect(previewKey(ENVELOPE, SEEDED, 'parallel', [BOX, SECOND])).not.toBe(
+      previewKey(ENVELOPE, SEEDED, 'parallel', [SECOND, BOX]),
+    );
+    // Property order and any key beyond §B3's six do not count as a change, so
+    // a re-render that rebuilds the objects is not a payload change.
+    const rebuilt = { y: 224, x: 64, page: 1, recipient_email: BOX.recipient_email, kind: 'signature', id: 'f0', focused: true };
+    expect(previewKey(ENVELOPE, SEEDED, 'parallel', [rebuilt as unknown as FieldInput])).toBe(
+      previewKey(ENVELOPE, SEEDED, 'parallel', [BOX]),
+    );
+  });
+
+  it('hands the fields to the transport and keeps them for a retry', async () => {
+    const seen: (readonly FieldInput[] | undefined)[] = [];
+    const transport = vi.fn<PreviewTransport>(async (_id, _recipients, _mode, _signal, fields) => {
+      seen.push(fields);
+      return SEEDED_RESULT;
+    });
+    const controller = new PreviewController(transport);
+
+    // A Step-2 request passes `undefined`, which is what omits the key.
+    await controller.request(ENVELOPE, SEEDED);
+    // A Step-3 request passes the collection.
+    await controller.request(ENVELOPE, SEEDED, 'parallel', [BOX]);
+    // LD-29: the retry re-runs the LAST intent, fields included.
+    await controller.retry();
+
+    expect(seen).toEqual([undefined, [BOX], [BOX]]);
+  });
+
+  it('makes a confirmed field answer unreadable once a box changes (seam S5)', async () => {
+    const { transport, calls } = deferredTransport();
+    const controller = new PreviewController(transport);
+    const placed = previewKey(ENVELOPE, SEEDED, 'parallel', [BOX]);
+    const moved = previewKey(ENVELOPE, SEEDED, 'parallel', [{ ...BOX, x: 72 }]);
+
+    const pending = controller.request(ENVELOPE, SEEDED, 'parallel', [BOX]);
+    calls[0]?.resolve(SEEDED_RESULT);
+    await pending;
+
+    expect(controller.resultFor(placed)).toEqual(SEEDED_RESULT);
+    // The box is nudged 8 units right. Nothing was cleared; the answer is
+    // simply filed under a key that no longer matches the payload.
+    expect(controller.resultFor(moved)).toBeNull();
+    // And editing back to the exact earlier payload reads the answer again —
+    // the behavioural difference between a hash and a request counter.
+    expect(controller.resultFor(placed)).toEqual(SEEDED_RESULT);
   });
 });
 

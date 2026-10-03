@@ -84,8 +84,12 @@ describe('charge-preview request body (ADR-003, PRD §9)', () => {
     Case 2 §A2/§B4 added `order_mode`, and the client now sends it in both
     modes rather than relying on the server's default. The assertion keeps its
     job — the accepted surface is CLOSED, and nothing else may appear — and
-    gains the one key the brief added. `fields` (P3) is still absent, and the
-    separate parallel/sequential tests below pin what `step` does.
+    gains the one key the brief added. P3 then added `fields`, which §B4 makes
+    OPTIONAL in a load-bearing way: a caller that submits no collection, which
+    is every Step-2 preview, must not send the key at all. So this body — built
+    with no `fields` argument — still carries exactly two keys, and the
+    separate parallel/sequential tests below pin that alongside what `step`
+    does. `field-placement.test.ts` pins the Step-3 shape that DOES carry it.
   */
   it('carries exactly the two top-level keys §B4 defines', () => {
     expect(Object.keys(buildChargePreviewBody(rows))).toEqual(['order_mode', 'recipients']);
