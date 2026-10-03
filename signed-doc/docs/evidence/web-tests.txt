@@ -378,3 +378,307 @@ $ pnpm --filter @signed-doc/web exec vitest run --reporter=verbose
    Duration  1.48s (transform 339ms, setup 0ms, collect 749ms, tests 730ms, environment 2.14s, prepare 322ms)
 
 exit: 0
+
+
+================================================================================
+CASE 2 — P2 (signing order): test_2_en.md §A2, §A3.3, §B4, §B7 rows 5-9 and 21
+apps/web only. Captured 2026-10-03 18:15:36 WITA, node v24.19.0, pnpm 12.6.0.
+
+Both captures above are intact and every one of their tests is still in this
+run (254 = 193 through P1 + 61 new). No expected VALUE from Case 1 or P1
+changed. Six shape assertions grew to match the §B4 contract the shared kernel
+now requires, and two api-contract tests were replaced rather than relaxed:
+
+  - request body top-level keys 1 -> 2 (`order_mode` is now always sent;
+    `['recipients']` -> `['order_mode','recipients']`), in api-contract and in
+    app-smoke's "sends only recipients" test;
+  - reducer state keys 2 -> 3 (`orderMode` is a user choice, not a derived
+    figure), in recipients-reducer and meterai — the "no total-shaped key"
+    forbidden-substring lists those tests exist for are unchanged;
+  - "sends no P2/P3 key" asserted that `order_mode` is NOT sent, which §B4
+    supersedes. It is replaced by two STRICTER tests: parallel sends no `step`
+    and no `fields` even when the rows carry a step, and sequential sends a
+    step for every recipient. The price/quota/total leak guard is untouched.
+  - the preview-response fixtures gained §B4's `order_mode` and `steps` keys.
+
+§A2.7 (focus is not lost after a row moves) is asserted on `document.
+activeElement` in the three "§A2.7" tests below. All three were confirmed to
+FAIL when the restore effect in RecipientsStep.tsx is disabled, so they are
+testing the implementation and not a jsdom coincidence.
+
+NOT verified here: a real-browser pass. apps/server was mid-change for this
+same story under a concurrent agent while this work was done, so there was no
+stable backend to drive the UI against. The web package is typechecked on its
+own below; `pnpm -r typecheck` is not claimed.
+================================================================================
+
+$ pnpm --filter @signed-doc/web exec tsc --noEmit
+exit: 0   (no output above = clean)
+
+$ pnpm --filter @signed-doc/web exec vitest run --reporter=verbose
+
+
+ RUN  v3.2.7 /Users/kuro/project/react/react-playground/signed-doc/apps/web
+
+ ✓ src/__tests__/upload-machine.test.ts > initial state > starts idle with no document and no error 1ms
+ ✓ src/__tests__/upload-machine.test.ts > initial state > gates Continue shut in the empty state (PRD §7.6) 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > reaches validating 1ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > reaches uploading 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > reaches success 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > reaches error from the frontend pre-check 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > reaches error from the server 0ms
+ ✓ src/__tests__/upload-machine.test.ts > every state is reachable > returns to idle 0ms
+ ✓ src/__tests__/upload-machine.test.ts > SELECT_FILE replaces — files never accumulate (PRD §7.5) > replaces the held document when a second file is chosen from success 0ms
+ ✓ src/__tests__/upload-machine.test.ts > SELECT_FILE replaces — files never accumulate (PRD §7.5) > the state shape has exactly one document slot 1ms
+ ✓ src/__tests__/upload-machine.test.ts > SELECT_FILE replaces — files never accumulate (PRD §7.5) > replaces from an error state too, clearing the previous cause 0ms
+ ✓ src/__tests__/upload-machine.test.ts > SELECT_FILE replaces — files never accumulate (PRD §7.5) > replaces mid-upload and orphans the in-flight attempt 0ms
+ ✓ src/__tests__/upload-machine.test.ts > REMOVE restores the empty state (PRD §7.5) > drops the document and the envelope 0ms
+ ✓ src/__tests__/upload-machine.test.ts > REMOVE restores the empty state (PRD §7.5) > clears an error state as well 0ms
+ ✓ src/__tests__/upload-machine.test.ts > REMOVE restores the empty state (PRD §7.5) > a result arriving after REMOVE cannot bring the card back 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > keeps the FILE_TYPE_NOT_ALLOWED cause distinct 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > keeps the FILE_TOO_LARGE cause distinct 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > keeps the FILE_REQUIRED cause distinct 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > keeps the FILENAME_INVALID cause distinct 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > marks the rejection as decided by the client, not by the server 0ms
+ ✓ src/__tests__/upload-machine.test.ts > FE_REJECT carries a per-cause reason (PRD §7.2) > is ignored outside validating — it can never overwrite a successful upload 0ms
+ ✓ src/__tests__/upload-machine.test.ts > RETRY (PRD §7.7, LD-29) > re-enters uploading and preserves the selected file 0ms
+ ✓ src/__tests__/upload-machine.test.ts > RETRY (PRD §7.7, LD-29) > starts a new attempt so the failed one cannot resolve into it 0ms
+ ✓ src/__tests__/upload-machine.test.ts > RETRY (PRD §7.7, LD-29) > succeeds on the retry, clearing the error and enabling Continue 0ms
+ ✓ src/__tests__/upload-machine.test.ts > RETRY (PRD §7.7, LD-29) > is a no-op after a client-side rejection — the same file fails the same rule 0ms
+ ✓ src/__tests__/upload-machine.test.ts > RETRY (PRD §7.7, LD-29) > is a no-op from idle, validating, uploading and success 0ms
+ ✓ src/__tests__/upload-machine.test.ts > the gate opens only on a real server success (PRD §7.6) > stays shut while validating and uploading 0ms
+ ✓ src/__tests__/upload-machine.test.ts > the gate opens only on a real server success (PRD §7.6) > opens on success and exposes the server metadata 0ms
+ ✓ src/__tests__/upload-machine.test.ts > the gate opens only on a real server success (PRD §7.6) > carries the server-issued price and quota — the browser has no other source 0ms
+ ✓ src/__tests__/upload-machine.test.ts > the reducer is pure > never mutates the state it is given 0ms
+ ✓ src/__tests__/upload-machine.test.ts > the reducer is pure > returns the same reference for an action it ignores 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > seeds every row at 0 — the column costs the user nothing until they ask 2ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "" 1ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing " " 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "abc" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "2.5" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "-1" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "4" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "7" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "1e1" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "NaN" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "undefined" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "+1" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "٣" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > keeps a valid integer after typing "２" 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > settles the named values on the documented results 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > shows the settled value in the box after blur, so the text cannot lie 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > lets the box be visually empty mid-typing without touching the number 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > INC stops at 3 and DEC stops at 0 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > repairs a box left mid-edit rather than stepping from the stale text 0ms
+ ✓ src/__tests__/meterai.test.ts > the eMeterai stepper (§A3.1, §B1) > moves the eMeterai count and the signature count independently 1ms
+ ✓ src/__tests__/meterai.test.ts > §A3.2 is reachable and marked on the ROW (§B7 row 4) > does NOT cap the stepper at the row's signature_count 0ms
+ ✓ src/__tests__/meterai.test.ts > §A3.2 is reachable and marked on the ROW (§B7 row 4) > marks exactly the offending row and leaves the others clean 0ms
+ ✓ src/__tests__/meterai.test.ts > §A3.2 is reachable and marked on the ROW (§B7 row 4) > treats equality as the boundary, not the failure 0ms
+ ✓ src/__tests__/meterai.test.ts > §A3.2 is reachable and marked on the ROW (§B7 row 4) > marks a second row on its own account, without clearing the first 0ms
+ ✓ src/__tests__/meterai.test.ts > §A3.2 is reachable and marked on the ROW (§B7 row 4) > clears the mark as soon as the row is made legal again 0ms
+ ✓ src/__tests__/meterai.test.ts > §A3.2 is reachable and marked on the ROW (§B7 row 4) > still prices an over-stamped row — the bill follows the counts (§A4.12) 0ms
+ ✓ src/__tests__/meterai.test.ts > the exact combined cost (§B7 rows 1–2, ADR-006) > row 1 — Rina 2 sig / 1 met, Budi 1 sig / 0 met 0ms
+ ✓ src/__tests__/meterai.test.ts > the exact combined cost (§B7 rows 1–2, ADR-006) > row 1 — the per-row Charge column is each recipient's COMBINED cost (§A3.6) 0ms
+ ✓ src/__tests__/meterai.test.ts > the exact combined cost (§B7 rows 1–2, ADR-006) > row 2 — Rina 2 sig / 2 met, Budi 1 sig / 1 met: exactly at the meterai quota 0ms
+ ✓ src/__tests__/meterai.test.ts > the exact combined cost (§B7 rows 1–2, ADR-006) > keeps the non-zero fraction exact rather than rounding it away 0ms
+ ✓ src/__tests__/meterai.test.ts > the two quotas are independent (§A3.5, §B7 row 3) > reports a meterai shortfall on its own, with the signature quota untouched 0ms
+ ✓ src/__tests__/meterai.test.ts > the two quotas are independent (§A3.5, §B7 row 3) > reports a signature shortfall on its own, with the meterai quota untouched 0ms
+ ✓ src/__tests__/meterai.test.ts > the two quotas are independent (§A3.5, §B7 row 3) > reports BOTH when both are busted — neither hides the other 0ms
+ ✓ src/__tests__/meterai.test.ts > no derived figure is stored (§A3.9) > state carries counts and text only — no charge, no total, no quota 1ms
+ ✓ src/__tests__/meterai.test.ts > no derived figure is stored (§A3.9) > the same rows always derive the same figures — there is nothing to drift 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > seed (LD-15, PRD §6) > seeds Rina Halim and Budi Santoso exactly as the PRD gives them 2ms
+ ✓ src/__tests__/recipients-reducer.test.ts > seed (LD-15, PRD §6) > uses @example.test fixture addresses only (PRD §5) 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > seed (LD-15, PRD §6) > gives every row a stable, distinct id 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > no derived total is stored (PRD §8.6) > has no total-shaped key anywhere in the state 1ms
+ ✓ src/__tests__/recipients-reducer.test.ts > no derived total is stored (PRD §8.6) > a row carries only its own fields plus local id and raw text 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > SET_NAME / SET_EMAIL > stores the raw text without trimming — validation trims, editing does not 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > SET_NAME / SET_EMAIL > accepts an empty name so the user can clear a field mid-edit 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > SET_NAME / SET_EMAIL > leaves other rows alone 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > SET_NAME / SET_EMAIL > ignores an out-of-range index 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing " " 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "abc" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "2.5" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "-1" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "0" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "25" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "1e3" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "NaN" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "undefined" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "+3" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "٣" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > keeps a valid integer after typing "２" 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > the four values PRD §10 names settle on the documented results 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > shows the settled value in the box after blur, so the text cannot lie 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > lets the box be visually empty mid-typing without touching the number 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > does not snap an in-range value under the cursor while typing 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > signature_count is never NaN or undefined (PRD §8.3, prompt §4 fact 7) > holds the previous number while an over-range value is being typed 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > INC / DEC stop at the bounds (PRD §8.3) > DEC stops at 1 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > INC / DEC stop at the bounds (PRD §8.3) > INC stops at 20 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > INC / DEC stop at the bounds (PRD §8.3) > INC from the seed advances by exactly one 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > INC / DEC stop at the bounds (PRD §8.3) > repairs a box left mid-edit rather than stepping from the stale text 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > ADD_ROW appends an empty row defaulting to 1 signature 1ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > ADD_ROW at 10 rows leaves the list at 10 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > REMOVE_ROW at 1 row leaves the list at 1 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > REMOVE_ROW removes the named row and keeps the others intact 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > never reuses an id, so React keys stay stable across a remove 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > list bounds (PRD §8.1, §8.2, LD-12, LD-16) > ignores an out-of-range REMOVE_ROW index 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > accessibleNameFor (PRD §8.12 — the mockup's own fallback) > uses the trimmed name when there is one 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > accessibleNameFor (PRD §8.12 — the mockup's own fallback) > falls back to signer {i+1} when the name is blank 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > the reducer is pure > never mutates the state it is given 0ms
+ ✓ src/__tests__/recipients-reducer.test.ts > the reducer is pure > returns the same reference when nothing changes 0ms
+ ✓ src/__tests__/signing-order.test.ts > SET_ORDER_MODE (§A2) > defaults to parallel, and parallel rows carry no step at all (§B4) 1ms
+ ✓ src/__tests__/signing-order.test.ts > SET_ORDER_MODE (§A2) > switching to sequential gives every recipient a contiguous step 1ms
+ ✓ src/__tests__/signing-order.test.ts > SET_ORDER_MODE (§A2) > switching to sequential keeps every typed character (§A2.8) 0ms
+ ✓ src/__tests__/signing-order.test.ts > SET_ORDER_MODE (§A2) > switching back to parallel DELETES step rather than parking it (§B7 row 9) 0ms
+ ✓ src/__tests__/signing-order.test.ts > SET_ORDER_MODE (§A2) > switching back to parallel keeps every other field (§A2.8) 0ms
+ ✓ src/__tests__/signing-order.test.ts > SET_ORDER_MODE (§A2) > re-selecting the mode already in force changes nothing at all 0ms
+ ✓ src/__tests__/signing-order.test.ts > ADD_ROW in sequential (§A2.1) > gives the new signer a valid step at the end of the chain 0ms
+ ✓ src/__tests__/signing-order.test.ts > ADD_ROW in sequential (§A2.1) > never produces a gap, even when the list was all in one step 0ms
+ ✓ src/__tests__/signing-order.test.ts > ADD_ROW in sequential (§A2.1) > adds no step in parallel — the Case-1 row shape is untouched 0ms
+ ✓ src/__tests__/signing-order.test.ts > REMOVE_ROW renormalizes (§A2.4, §B7 row 8) > [1,2,2,3] minus the sole member of step 1 becomes [1,1,2] 0ms
+ ✓ src/__tests__/signing-order.test.ts > REMOVE_ROW renormalizes (§A2.4, §B7 row 8) > ...with every surviving recipient's data intact, step aside 0ms
+ ✓ src/__tests__/signing-order.test.ts > REMOVE_ROW renormalizes (§A2.4, §B7 row 8) > emptying a MIDDLE step renormalizes too 0ms
+ ✓ src/__tests__/signing-order.test.ts > REMOVE_ROW renormalizes (§A2.4, §B7 row 8) > stamps no step on a parallel row — the kernel guard is load-bearing 0ms
+ ✓ src/__tests__/signing-order.test.ts > MOVE_STEP — the up/down path (§A2.6) > splits a recipient OUT of a shared step when moved earlier 0ms
+ ✓ src/__tests__/signing-order.test.ts > MOVE_STEP — the up/down path (§A2.6) > splits a recipient OUT of a shared step when moved later 0ms
+ ✓ src/__tests__/signing-order.test.ts > MOVE_STEP — the up/down path (§A2.6) > swaps with the neighbouring step when it is already alone 0ms
+ ✓ src/__tests__/signing-order.test.ts > MOVE_STEP — the up/down path (§A2.6) > is a no-op at either end of the chain, and says so to the UI 0ms
+ ✓ src/__tests__/signing-order.test.ts > MOVE_STEP — the up/down path (§A2.6) > is a no-op in parallel — there is only one step to be in (§A3.4) 0ms
+ ✓ src/__tests__/signing-order.test.ts > MOVE_STEP — the up/down path (§A2.6) > loses NOTHING but the step number (§A2.8) 1ms
+ ✓ src/__tests__/signing-order.test.ts > MERGE_STEP — recipients signing in parallel within a step (§A2.2, §A2.6) > merges a recipient into the previous step 0ms
+ ✓ src/__tests__/signing-order.test.ts > MERGE_STEP — recipients signing in parallel within a step (§A2.2, §A2.6) > merges a recipient into the next step, renormalizing the step it emptied 0ms
+ ✓ src/__tests__/signing-order.test.ts > MERGE_STEP — recipients signing in parallel within a step (§A2.2, §A2.6) > can collapse the whole chain back to a single step 0ms
+ ✓ src/__tests__/signing-order.test.ts > MERGE_STEP — recipients signing in parallel within a step (§A2.2, §A2.6) > is a no-op at either end, and says so to the UI 0ms
+ ✓ src/__tests__/signing-order.test.ts > MERGE_STEP — recipients signing in parallel within a step (§A2.2, §A2.6) > loses NOTHING but the step number (§A2.8) 0ms
+ ✓ src/__tests__/signing-order.test.ts > every reducer path leaves a list the server would accept (§A2.3) > holds for every single-action reorder of [1,2,2,3] 0ms
+ ✓ src/__tests__/signing-order.test.ts > every reducer path leaves a list the server would accept (§A2.3) > holds after any single deletion from [1,2,2,3] 0ms
+ ✓ src/__tests__/signing-order.test.ts > every reducer path leaves a list the server would accept (§A2.3) > holds after a long walk of mixed reorders 0ms
+ ✓ src/__tests__/signing-order.test.ts > every reducer path leaves a list the server would accept (§A2.3) > never mutates the state it is given 0ms
+ ✓ src/__tests__/signing-order.test.ts > §A3.3 — a meterai carrier may only be in step 1 > is clean while the carrier is in step 1 0ms
+ ✓ src/__tests__/signing-order.test.ts > §A3.3 — a meterai carrier may only be in step 1 > marks THAT recipient the moment they are moved out of step 1 0ms
+ ✓ src/__tests__/signing-order.test.ts > §A3.3 — a meterai carrier may only be in step 1 > is cleared again by merging the carrier back into step 1 0ms
+ ✓ src/__tests__/signing-order.test.ts > §A3.3 — a meterai carrier may only be in step 1 > does not bind in parallel, which IS a single step (§A3.4) 0ms
+ ✓ src/__tests__/signing-order.test.ts > the §A2.5 grouped view > buckets the rows by step, in step order, keeping list order inside a step 0ms
+ ✓ src/__tests__/signing-order.test.ts > the §A2.5 grouped view > agrees with the kernel projection the server echoes back (§B4) 0ms
+ ✓ src/__tests__/signing-order.test.ts > the §A2.5 grouped view > spells out that a shared step signs in parallel (§A2.2) 0ms
+ ✓ src/__tests__/signing-order.test.ts > the wire projection (§B4, §B7 row 9) > carries a step for every recipient in sequential 0ms
+ ✓ src/__tests__/signing-order.test.ts > the wire projection (§B4, §B7 row 9) > carries no step at all in parallel 0ms
+ ✓ src/__tests__/signing-order.test.ts > the staleness guard knows about the mode and the steps (seam S5) > changes the key when the mode changes, with identical recipients 0ms
+ ✓ src/__tests__/signing-order.test.ts > the staleness guard knows about the mode and the steps (seam S5) > changes the key when one recipient moves to another step 0ms
+ ✓ src/__tests__/signing-order.test.ts > the staleness guard knows about the mode and the steps (seam S5) > ignores a leftover step in parallel — it is not part of the input (§B4) 0ms
+ ✓ src/__tests__/signing-order.test.ts > the staleness guard knows about the mode and the steps (seam S5) > makes a confirmed total unreadable once the mode changes 0ms
+ ✓ src/__tests__/signing-order.test.ts > the staleness guard knows about the mode and the steps (seam S5) > aborts a PENDING preview when a recipient is moved to another step 0ms
+ ✓ src/__tests__/signing-order.test.ts > the staleness guard knows about the mode and the steps (seam S5) > sends step ONLY in sequential, whatever the rows carry 0ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > is stable for the same payload 1ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > changes when any recipient field changes 1ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > changes when an eMeterai count changes — §A3 data is hashed too 0ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > changes when the list length or order changes 0ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > changes when the envelope changes 0ms
+ ✓ src/__tests__/preview-controller.test.ts > previewKey (seam S5) > ignores property order and local-only fields, so a re-render is not a change 0ms
+ ✓ src/__tests__/preview-controller.test.ts > the happy path > goes loading -> confirmed and files the result under the payload key 1ms
+ ✓ src/__tests__/preview-controller.test.ts > the happy path > sends exactly the wire fields, with no price, quota or total 1ms
+ ✓ src/__tests__/preview-controller.test.ts > the happy path > notifies subscribers on every state change 0ms
+ ✓ src/__tests__/preview-controller.test.ts > a stale response never becomes the active result (PRD §8.10, §10 row 12) > drops the older response when two are in flight and the SECOND resolves first 2ms
+ ✓ src/__tests__/preview-controller.test.ts > a stale response never becomes the active result (PRD §8.10, §10 row 12) > drops the older response when it resolves first but has already been superseded 2ms
+ ✓ src/__tests__/preview-controller.test.ts > a stale response never becomes the active result (PRD §8.10, §10 row 12) > a stale FAILURE cannot raise a banner over newer data either 2ms
+ ✓ src/__tests__/preview-controller.test.ts > a stale response never becomes the active result (PRD §8.10, §10 row 12) > aborts the superseded request rather than leaving it running (LD-28) 0ms
+ ✓ src/__tests__/preview-controller.test.ts > a stale response never becomes the active result (PRD §8.10, §10 row 12) > keeps exactly one request in flight per intent — no queue, no auto-retry (LD-29) 0ms
+ ✓ src/__tests__/preview-controller.test.ts > any change to recipient data invalidates the previous server result (§8.10) > a confirmed result is unreadable for the edited payload 0ms
+ ✓ src/__tests__/preview-controller.test.ts > any change to recipient data invalidates the previous server result (§8.10) > an eMeterai change invalidates a CONFIRMED preview, exactly as a signature change does 0ms
+ ✓ src/__tests__/preview-controller.test.ts > any change to recipient data invalidates the previous server result (§8.10) > an eMeterai change aborts a PENDING preview and drops its late answer 3ms
+ ✓ src/__tests__/preview-controller.test.ts > any change to recipient data invalidates the previous server result (§8.10) > aborts an in-flight request when the data changes under it 0ms
+ ✓ src/__tests__/preview-controller.test.ts > any change to recipient data invalidates the previous server result (§8.10) > a response arriving after the data changed is dropped 3ms
+ ✓ src/__tests__/preview-controller.test.ts > any change to recipient data invalidates the previous server result (§8.10) > keying on the PAYLOAD, not a counter: editing back restores the server's own answer 0ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > surfaces a 10 s timeout as the LD-28 message, filed under the current key 0ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > surfaces a server 422 with its code and details so the rows can be marked 0ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > surfaces ENVELOPE_NOT_FOUND rather than leaving a stale total on screen 0ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > retries only when asked, and only the last intent 2ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > retry before any request is a no-op 0ms
+ ✓ src/__tests__/preview-controller.test.ts > failures are retryable and lose nothing (LD-28, LD-29) > never rejects to the caller — a failure has a rendered home, not a catch block 1ms
+ ✓ src/__tests__/preview-controller.test.ts > dispose > aborts in-flight work and forgets the result 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > renders the PRD §10 Rina + Budi total 1ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > renders the unit price 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > renders the quota-boundary total 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > renders zero 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > keeps a non-zero fraction — the digits are not dropped 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > groups beyond Number.MAX_SAFE_INTEGER exactly 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatIdr (LD-11, ADR-006) > shows a malformed value verbatim instead of throwing inside render 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatBytes > renders the mockup's 1.4 MB figure 0ms
+ ✓ src/__tests__/api-contract.test.ts > formatBytes > renders small sizes in KB and B 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > carries exactly the two top-level keys §B4 defines 1ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > defaults to parallel, which is what a Case-1 caller meant 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > carries exactly four keys per recipient — no price, total or quota 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > carries meterai_count through unrepaired, so §B7 row 4's 422 stays reachable 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > sends no step and no fields key in parallel, whatever the rows carry 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > sends a step for every recipient in sequential, and still no fields key 1ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > reads a missing step through the kernel rather than sending undefined 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > drops local-only fields such as the row id and the in-progress count text 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > serializes to a body with no commercial key anywhere 0ms
+ ✓ src/__tests__/api-contract.test.ts > charge-preview request body (ADR-003, PRD §9) > escapes the envelope id into the path 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > returns the parsed body on 2xx 2ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > normalizes a 422 into the server's code, message and details 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > normalizes a 404 envelope-not-found 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > degrades an unrecognized error body to SERVER_ERROR without leaking it 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > aborts on timeout and surfaces the LD-28 message, exactly once 7ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > reports a caller cancellation as REQUEST_CANCELLED, not as a timeout 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > composes the caller signal and the timeout into the ONE signal fetch sees (LD-28) 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > never reaches the network when the caller signal is already aborted 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > reports a transport throw as NETWORK_ERROR with the same retryable message 0ms
+ ✓ src/__tests__/api-contract.test.ts > request (LD-28, LD-29) > reports an unreadable 2xx body rather than returning undefined 0ms
+ ✓ src/__tests__/app-smoke.test.tsx > stepper (ADR-005, LD-02, seam S1) > renders three pills with Place fields locked, non-focusable and not navigable 16ms
+ ✓ src/__tests__/app-smoke.test.tsx > stepper (ADR-005, LD-02, seam S1) > marks the active pill with aria-current="step" and no other 3ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 gating (PRD §7.6) > disables Continue in the empty state with a visible, associated reason 28ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 gating (PRD §7.6) > renders the mockup copy and the disabled From cloud control (LD-05) 7ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 gating (PRD §7.6) > every input on the step has an associated label (PRD §8.12) 2ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 upload (PRD §7.2, §7.4, §7.5, §10 XSS row) > renders the XSS-shaped filename as inert text and enables Continue 16ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 upload (PRD §7.2, §7.4, §7.5, §10 XSS row) > rejects a bad extension in the browser with a per-cause message and sends nothing 7ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 upload (PRD §7.2, §7.4, §7.5, §10 XSS row) > renders a server rejection from its code, with a user-driven retry 15ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 1 upload (PRD §7.2, §7.4, §7.5, §10 XSS row) > replaces on re-upload — never two cards (PRD §7.5) 14ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 derived totals (PRD §8.6, §8.7, §10 row 6) > shows the seeded list, its per-row charges and the estimated total 23ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 derived totals (PRD §8.6, §8.7, §10 row 6) > recomputes in render — one click changes the row charge and the total together 23ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 derived totals (PRD §8.6, §8.7, §10 row 6) > never lets the count become NaN, whatever is typed (PRD §8.3) 18ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 eMeterai column (§A3.6–§A3.9) > renders an eMeterai stepper per row, seeded at 0 and separately labelled 21ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 eMeterai column (§A3.6–§A3.9) > §B7 row 1 — one duty stamp changes the row charge, both lines and the total 22ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 eMeterai column (§A3.6–§A3.9) > never lets the eMeterai count become NaN, whatever is typed (§B1) 17ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 eMeterai column (§A3.6–§A3.9) > §B7 row 4 — marks THAT row, not the whole form 26ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 eMeterai column (§A3.6–§A3.9) > §A3.2 stays reachable — the stepper does not cap itself at signature_count 22ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 eMeterai column (§A3.6–§A3.9) > §A3.5 — a meterai shortfall reads as a meterai shortfall, not a signature one 25ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 eMeterai column (§A3.6–§A3.9) > §A3.5 — both shortfalls are on screen at once, as two distinct sentences 28ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 eMeterai column (§A3.6–§A3.9) > an eMeterai change invalidates a server-confirmed total (§8.10, staleness guard) 30ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > disables Continue over quota, clamps remaining at 0 and names the numbers 20ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > marks BOTH colliding rows on a case- and whitespace-insensitive duplicate 21ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > keeps two simultaneous blockers both visible rather than collapsing them 21ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > disables Add signer at ten rows with the reason next to it (LD-16) 120ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > disables remove on the last remaining row (LD-12) 19ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 gating (PRD §8.8, §10 rows 7 and 8, LD-17) > labels a blank row's controls with the mockup's signer {i+1} fallback 21ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 Continue — the server is the authority (PRD §8.9, LD-13) > sends only recipients, and swaps the estimate for the server's figures 21ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 Continue — the server is the authority (PRD §8.9, LD-13) > drops the server-confirmed label as soon as the data changes (§8.10) 23ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 Continue — the server is the authority (PRD §8.9, LD-13) > surfaces a 422 by code with a retry that loses nothing 33ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 Continue — the server is the authority (PRD §8.9, LD-13) > renders Save as draft as inert (LD-05) 13ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 Continue — the server is the authority (PRD §8.9, LD-13) > Back returns to Step 1 with the document still uploaded 16ms
+ ✓ src/__tests__/app-smoke.test.tsx > every Step 2 input has an associated label (PRD §8.12) > holds for the name, email, signature and eMeterai inputs of every row 10ms
+ ✓ src/__tests__/app-smoke.test.tsx > every Step 2 input has an associated label (PRD §8.12) > gives every icon button on the row an aria-label naming the signer 19ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > renders the selector ABOVE the recipient list, parallel by default 15ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §A2.5 — sequential groups the rows under a visible step header 41ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §A2.2/§A2.5 — a shared step says its members sign in parallel 44ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §A2.6/§A2.7 — every reorder control names the recipient it moves 49ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §A2.7 — focus STAYS on the control that moved the row 56ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §A2.7 — focus survives a move that disabled the control it was on 90ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §A2.7 — a merge keeps focus on the merge control too 60ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §A2.8 — reordering loses nothing the user entered 77ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §A3.3 — a meterai carrier moved out of step 1 is marked on THAT row 73ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §A3.3 — merging the carrier back into step 1 clears it 74ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §B4 — the payload carries order_mode and a step per recipient in sequential 45ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > §B7 row 9 — switching back to parallel stops sending step entirely 61ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > a mode change invalidates a server-confirmed total (§8.10, staleness guard) 22ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > a step change invalidates a server-confirmed total too 57ms
+ ✓ src/__tests__/app-smoke.test.tsx > Step 2 signing order (§A2.5–§A2.8, §A3.3) > the mode radios keep their label association (PRD §8.12) 9ms
+
+ Test Files  7 passed (7)
+      Tests  254 passed (254)
+   Start at  18:15:38
+   Duration  2.49s (transform 467ms, setup 0ms, collect 1.03s, tests 1.57s, environment 3.07s, prepare 446ms)
+
+
+exit: 0
