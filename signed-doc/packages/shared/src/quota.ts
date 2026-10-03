@@ -1,5 +1,6 @@
 /**
- * Quota stages — the last two entries in `test_2_en.md` §B5's validation order.
+ * Quota stages — the last two entries in `test_2_en.md` §B5's validation order,
+ * plus `chargePreviewStages`, which composes the whole order as one array.
  *
  * They live in their own module for one reason: they are the ONLY rules in this
  * package that need a commercial value to decide anything. ADR-003 says the
@@ -21,6 +22,7 @@
  */
 
 import { validationFailure } from './errors.js';
+import { fieldStages } from './fields.js';
 import { quotaRemaining, type QuotaTable } from './pricing.js';
 import {
   countStage,
@@ -103,32 +105,44 @@ export function quotaStages(quota: QuotaTable): readonly RecipientListStage[] {
 }
 
 /**
- * The complete P1+P2 validation order of §B5, as data:
+ * The complete P1+P2+P3 validation order of §B5, as data — all ELEVEN stages:
  *
  *   order_mode -> count -> per recipient -> duplicate emails -> step structure
  *   -> meterai-vs-signature -> meterai step placement
+ *   -> field shape & bounds -> field-vs-count reconciliation
  *   -> signature quota -> meterai quota
  *
  * One array literal, read top to bottom, is the whole §B5 contract from the
  * recipient list on. The steps §B5 lists before `order_mode` — payload shape and
  * envelope existence — are the server's, because only the server has a request
- * and a store. P3's field stages belong between `meterai-step-placement` and
- * `signature-quota`; adding them is an insertion into this array.
+ * and a store.
  *
- * `order_mode` takes the RAW value off the request, not an `OrderMode`, because
- * judging it is the stage's job (`ORDER_MODE_INVALID`). It defaults to
- * `parallel`, so a Case-1 caller that passes only the quota gets exactly the
- * behaviour it had: both step stages are vacuous in `parallel` (§A3.4), which
- * is why the pipeline's SHAPE does not vary by mode even though its verdicts do.
- * One registered order, asserted once.
+ * P3 landed as the seam predicted: TWO INSERTIONS into this array, between
+ * `meterai-step-placement` and `signature-quota`, and not one line changed in
+ * any stage that was already here. Two ordering consequences the brief is
+ * explicit about (delta §5):
  *
- * Only `order_mode` and the two quota stages are parameterized. Everything else
- * is a module constant, so inserting a rule here can never change what an
- * existing stage decides.
+ *   - reconciliation PRECEDES both quotas, because §B7.10/§B7.11 expect
+ *     `FIELD_COUNT_MISMATCH` even when a quota would also fail;
+ *   - shape & bounds precede reconciliation, because a box that is not on the
+ *     page cannot be counted as materializing anything (§B7.15-§B7.18).
+ *
+ * `order_mode` and `fields` both take the RAW value off the request, not a
+ * resolved one, because judging them is the stages' job. Both default to
+ * absence, so a Case-1 caller that passes only the quota gets exactly the
+ * behaviour it had: the step stages are vacuous in `parallel` (§A3.4) and the
+ * field stages are vacuous with no `fields` key (§B4 — absence is the Step-2
+ * preview). That is why the pipeline's SHAPE varies with neither mode nor
+ * payload even though its verdicts do. One registered order, asserted once.
+ *
+ * Only `order_mode`, `fields` and the two quota stages are parameterized.
+ * Everything else is a module constant, so inserting a rule here can never
+ * change what an existing stage decides.
  */
 export function chargePreviewStages(
   quota: QuotaTable,
   orderMode: unknown = DEFAULT_ORDER_MODE,
+  fields?: unknown,
 ): readonly RecipientListStage[] {
   const mode = orderModeOf(orderMode);
   return [
@@ -139,6 +153,7 @@ export function chargePreviewStages(
     stepStructureStage(mode),
     meteraiVsSignatureStage,
     meteraiStepPlacementStage(mode),
+    ...fieldStages(fields, mode),
     ...quotaStages(quota),
   ];
 }

@@ -35,6 +35,9 @@ export type {
   ChargeRecord,
   EnvelopeCreatedResponse,
   EnvelopeMeta,
+  Field,
+  FieldInput,
+  FieldKind,
   Money,
   OrderMode,
   PriceRecord,
@@ -110,6 +113,50 @@ export {
   validateOrderMode,
   validateStepSequence,
 } from './steps.js';
+
+// Field placement — geometry, shape and the reconciliation invariant (§A4, P3).
+//
+// The geometry is TWO functions on purpose (§B2: "The UI clamps. The API
+// rejects."): `clampFieldPosition` repairs a position and belongs to the
+// frontend; `isFieldInBounds` / `validateFieldBounds` judge one and belong to
+// the server, which must answer `FIELD_OUT_OF_BOUNDS` rather than silently
+// clamp (§B7.15, §B7.16). They are not interchangeable.
+export {
+  CONTENT_AREA,
+  FIELD_KINDS,
+  FIELD_PAGE,
+  FIELD_SIZES,
+  PAGE_PADDING,
+  PAGE_SIZE,
+  canCarryMeteraiField,
+  clampFieldPosition,
+  fieldBoundsFor,
+  fieldListOf,
+  fieldOwnerOf,
+  fieldReconciliationStage,
+  fieldShapeStage,
+  fieldSizeOf,
+  fieldStages,
+  fieldsProvided,
+  isFieldInBounds,
+  isFieldKind,
+  reconcileFields,
+  validateFieldBounds,
+  validateFieldCounts,
+  validateFieldIdentity,
+  validateFieldList,
+  validateFieldOwnership,
+  validateFieldPage,
+  validateFieldReconciliation,
+  validateFieldShape,
+  validateMeteraiFieldPlacement,
+  type FieldBounds,
+  type FieldCounts,
+  type FieldPosition,
+  type FieldReconciliation,
+  type FieldSize,
+  type RecipientFieldProgress,
+} from './fields.js';
 
 // Derived totals — pure, component-free (PRD §8.6, Case 2 §A3.6/§A3.7).
 export {

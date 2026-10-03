@@ -89,6 +89,43 @@ export interface Recipient extends RecipientInput {
   readonly id: string;
 }
 
+/**
+ * `test_2_en.md` §B3 — what kind of box a placed field is.
+ *
+ * The kind is also the field's GEOMETRY: `signature` is `212 x 88` and
+ * `meterai` is `112 x 112` (§B2), so the legal coordinate range differs per
+ * kind. There is no shared box.
+ */
+export type FieldKind = 'signature' | 'meterai';
+
+/**
+ * One placed field exactly as it crosses the wire (§B3).
+ *
+ * `x`/`y` are the field's TOP-LEFT coordinates relative to the `632 x 588`
+ * content area, not the viewport, and they are integers. `page` is required and
+ * must be `1` — multi-page documents are out of scope (§A4.7, §B9).
+ * `recipient_email` is compared after trimming, case-insensitively, the one way
+ * this kernel ever compares an email. `id` must be unique across the list; it
+ * is the handle a rejection points at (`details.field_id`) and the handle the
+ * UI's remove button carries (§A4.4).
+ *
+ * Every property is REQUIRED: unlike `meterai_count`, no field property has a
+ * documented default, and a box with no position or no owner is not a box that
+ * was placed. The whole COLLECTION is what is optional (see
+ * `ChargePreviewRequest.fields`).
+ */
+export interface FieldInput {
+  id: string;
+  kind: FieldKind;
+  recipient_email: string;
+  page: number;
+  x: number;
+  y: number;
+}
+
+/** A placed field as the UI holds it. The wire shape already carries its id. */
+export type Field = FieldInput;
+
 /** Document metadata retained after the bytes are discarded (ADR-002, PRD §7.10). */
 export interface EnvelopeMeta {
   readonly filename: string;
@@ -119,6 +156,25 @@ export interface ChargePreviewRequest {
    */
   order_mode?: OrderMode;
   recipients: RecipientInput[];
+  /**
+   * §B4. OPTIONAL on the wire, and the optionality is load-bearing in both
+   * directions:
+   *
+   * - ABSENT means "no field collection was submitted" — the Step-2 preview,
+   *   where no box has been placed yet and §A4.9 has nothing to compare. Every
+   *   Case-1 and P1/P2 payload is that shape, and it must keep validating. The
+   *   field rules are vacuous for it, exactly as the step rules are vacuous in
+   *   `parallel`.
+   * - PRESENT means Step 3, and the reconciliation invariant binds. `fields: []`
+   *   is therefore NOT the same as absence: it is a document where nothing has
+   *   been placed, and a recipient who asked for a signature makes it invalid
+   *   with `FIELD_COUNT_MISMATCH`.
+   *
+   * Anything present that is not an array is a mistake rather than a default —
+   * the same stance `meterai_count: null` already takes — and is read as an
+   * empty list, which the reconciliation stage then refuses.
+   */
+  fields?: FieldInput[];
 }
 
 /** `200` body of `POST /api/envelopes/:id/charge-preview`. The server's total is final. */
@@ -135,6 +191,16 @@ export interface ChargePreviewResponse {
   readonly total_signatures: number;
   /** `test_2_en.md` §B4. Counted the same way `total_signatures` is. */
   readonly total_meterai: number;
+  /**
+   * §B4 — how many fields the accepted request carried.
+   *
+   * Reported as what was SENT, never as what the counts required: a `200` only
+   * happens once §A4.9 holds, so on a success the two agree, and the figure is
+   * there to confirm the server read the same collection the client sent rather
+   * than to restate the counts. Always present, including for a payload that
+   * sent no `fields` at all, where it is `0`.
+   */
+  readonly field_count: number;
   readonly price: PriceRecord;
   readonly charges: ChargeRecord;
   readonly total_charge: Money;

@@ -522,7 +522,34 @@ describe('meterai step placement — §A3.3, §A3.4, §B7.6', () => {
 // ---------------------------------------------------------------------------
 
 describe('the §B5 validation order stays data, not an if-chain (seam S3)', () => {
+  /**
+   * P3 inserted `field-shape` and `field-reconciliation` between
+   * `meterai-step-placement` and `signature-quota`, exactly where §B5 puts
+   * them, so the nine-name equality this assertion was originally written as is
+   * superseded by the brief. Its INTENT — the three P2 stages sit at those
+   * positions relative to everything else, and nothing moved — is preserved
+   * verbatim below as a filter over the composed list.
+   */
   it('registers the P2 stages in exactly the brief’s positions', () => {
+    const throughP2 = [
+      'order-mode',
+      'count',
+      'per-recipient',
+      'duplicates',
+      'step-structure',
+      'meterai-vs-signature',
+      'meterai-step-placement',
+      'signature-quota',
+      'meterai-quota',
+    ];
+    expect(
+      chargePreviewStages(QUOTA, 'sequential')
+        .map((stage) => stage.name)
+        .filter((name) => throughP2.includes(name)),
+    ).toEqual(throughP2);
+  });
+
+  it('registers the P2 stages at those positions in the full eleven-stage order', () => {
     expect(chargePreviewStages(QUOTA, 'sequential').map((stage) => stage.name)).toEqual([
       'order-mode',
       'count',
@@ -531,6 +558,8 @@ describe('the §B5 validation order stays data, not an if-chain (seam S3)', () =
       'step-structure',
       'meterai-vs-signature',
       'meterai-step-placement',
+      'field-shape',
+      'field-reconciliation',
       'signature-quota',
       'meterai-quota',
     ]);

@@ -55,11 +55,13 @@ describe('the §B5 validation order is data, not an if-chain (seam S3)', () => {
   /**
    * P2 INSERTED three stages into this array — `order-mode` at the head, and
    * the two step rules around `meterai-vs-signature` — exactly where §B5 puts
-   * them. Nothing P1 registered was renamed, removed or reordered: the six
-   * names below still appear in the same relative order they did, which is the
-   * property this assertion has always been about.
+   * them. P3 then INSERTED two more, between `meterai-step-placement` and
+   * `signature-quota`. Nothing already registered has ever been renamed,
+   * removed or reordered: the names below still appear in the same relative
+   * order they did, which is the property this assertion has always been about
+   * and which the two assertions after it now pin explicitly.
    */
-  it('registers the P1 stages in exactly the brief’s order', () => {
+  it('registers the stages in exactly the brief’s order', () => {
     expect(chargePreviewStages(QUOTA).map((stage) => stage.name)).toEqual([
       'order-mode',
       'count',
@@ -68,6 +70,8 @@ describe('the §B5 validation order is data, not an if-chain (seam S3)', () => {
       'step-structure',
       'meterai-vs-signature',
       'meterai-step-placement',
+      'field-shape',
+      'field-reconciliation',
       'signature-quota',
       'meterai-quota',
     ]);
@@ -87,6 +91,31 @@ describe('the §B5 validation order is data, not an if-chain (seam S3)', () => {
         .map((stage) => stage.name)
         .filter((name) => p1.includes(name)),
     ).toEqual(p1);
+  });
+
+  /**
+   * The original form of the first assertion in this block, kept verbatim as a
+   * filter: P3 superseded the exact nine-name list (§B5 puts two field stages
+   * in the middle of it), so the intent — "these nine, in this order, nothing
+   * moved" — is preserved here instead of deleted.
+   */
+  it('keeps the P1+P2 stages in their pre-P3 relative order', () => {
+    const beforeP3 = [
+      'order-mode',
+      'count',
+      'per-recipient',
+      'duplicates',
+      'step-structure',
+      'meterai-vs-signature',
+      'meterai-step-placement',
+      'signature-quota',
+      'meterai-quota',
+    ];
+    expect(
+      chargePreviewStages(QUOTA)
+        .map((stage) => stage.name)
+        .filter((name) => beforeP3.includes(name)),
+    ).toEqual(beforeP3);
   });
 
   it('exposes the two quota stages separately, signature first', () => {

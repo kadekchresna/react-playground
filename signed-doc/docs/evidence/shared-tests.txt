@@ -598,3 +598,358 @@ $ vitest run --passWithNoTests --reporter=verbose
 
 
 exit: 0
+
+
+================================================================================
+CASE 2 — P3 place fields + the reconciliation invariant (EPIC C2-3, packages/shared)
+Captured 2026-10-03 18:36:08 WITA on branch feat/case-1-upload-and-recipients
+node v24.19.0, pnpm 12.6.0
+================================================================================
+
+$ cd packages/shared && npx tsc --noEmit
+exit: 0
+
+$ pnpm --filter @signed-doc/shared test --reporter=verbose
+$ vitest run --passWithNoTests --reporter=verbose
+
+ RUN  v3.2.7 /Users/kuro/project/react/react-playground/signed-doc/packages/shared
+
+ ✓ src/__tests__/meterai.test.ts > the meterai rule bounds are kernel constants (§B1) > is the integer range 0..3 2ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > accepts every integer in 0..3, including the 0 default 1ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > rejects -1 0ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > rejects 2.5 0ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > rejects "abc" 0ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > rejects "" 0ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > rejects null 0ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > rejects 4 0ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > rejects 21 0ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > rejects a numeric string, because coercion is the frontend’s job 0ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > rejects NaN, Infinity and non-scalars 0ms
+ ✓ src/__tests__/meterai.test.ts > isValidMeteraiCount — backend, strict, never coerces (§B1) > rejects an absent value — absence is the caller’s default, not a valid count 0ms
+ ✓ src/__tests__/meterai.test.ts > clampMeteraiCount — frontend stepper, never NaN/undefined (§A3, PRD §8.3) > clamps out-of-range integers into 0..3 instead of discarding them 1ms
+ ✓ src/__tests__/meterai.test.ts > clampMeteraiCount — frontend stepper, never NaN/undefined (§A3, PRD §8.3) > accepts 0, which is a legal count and the default 0ms
+ ✓ src/__tests__/meterai.test.ts > clampMeteraiCount — frontend stepper, never NaN/undefined (§A3, PRD §8.3) > keeps the previous value for anything that is not an integer 1ms
+ ✓ src/__tests__/meterai.test.ts > clampMeteraiCount — frontend stepper, never NaN/undefined (§A3, PRD §8.3) > accepts a well-formed numeric string, which is what a number input emits 0ms
+ ✓ src/__tests__/meterai.test.ts > clampMeteraiCount — frontend stepper, never NaN/undefined (§A3, PRD §8.3) > never returns NaN or undefined for any hostile input 2ms
+ ✓ src/__tests__/meterai.test.ts > clampMeteraiCount — frontend stepper, never NaN/undefined (§A3, PRD §8.3) > repairs a corrupted previous value rather than propagating it 1ms
+ ✓ src/__tests__/meterai.test.ts > clampMeteraiCount — frontend stepper, never NaN/undefined (§A3, PRD §8.3) > does not clamp against signature_count — §A3.2 is an error, not a repair 0ms
+ ✓ src/__tests__/meterai.test.ts > signatureCountOf / meteraiCountOf — counts as arithmetic can use them > reads a well-formed pair 1ms
+ ✓ src/__tests__/meterai.test.ts > signatureCountOf / meteraiCountOf — counts as arithmetic can use them > defaults an absent meterai_count to 0 (§B1 “default 0”) 0ms
+ ✓ src/__tests__/meterai.test.ts > signatureCountOf / meteraiCountOf — counts as arithmetic can use them > contributes 0 rather than NaN for a malformed count 0ms
+ ✓ src/__tests__/meterai.test.ts > meteraiWithinSignatures — §A3.2, one stamp next to one signature > allows fewer meterai than signatures 0ms
+ ✓ src/__tests__/meterai.test.ts > meteraiWithinSignatures — §A3.2, one stamp next to one signature > allows exactly as many meterai as signatures — the boundary is legal 0ms
+ ✓ src/__tests__/meterai.test.ts > meteraiWithinSignatures — §A3.2, one stamp next to one signature > refuses one more meterai than signatures (§B7.4: Rina 2 sig / 3 met) 1ms
+ ✓ src/__tests__/meterai.test.ts > meteraiWithinSignatures — §A3.2, one stamp next to one signature > treats an absent meterai_count as 0, which is within any signature count 0ms
+ ✓ src/__tests__/meterai.test.ts > validateRecipient — meterai_count joins the fixed per-recipient order > passes a recipient carrying meterai within its signature count 1ms
+ ✓ src/__tests__/meterai.test.ts > validateRecipient — meterai_count joins the fixed per-recipient order > passes a recipient with no meterai_count at all — absence means 0 (§B1) 0ms
+ ✓ src/__tests__/meterai.test.ts > validateRecipient — meterai_count joins the fixed per-recipient order > rejects a present-but-invalid meterai_count with its own code 1ms
+ ✓ src/__tests__/meterai.test.ts > validateRecipient — meterai_count joins the fixed per-recipient order > reports signature_count before meterai_count when both are wrong 0ms
+ ✓ src/__tests__/meterai.test.ts > validateRecipient — meterai_count joins the fixed per-recipient order > reports meterai_count before name and email when all three are wrong 0ms
+ ✓ src/__tests__/meterai.test.ts > validateRecipient — meterai_count joins the fixed per-recipient order > does NOT report meterai-vs-signature here — that is a later stage (§B5) 0ms
+ ✓ src/__tests__/meterai.test.ts > the meterai-vs-signature stage sits in the §B5 order (seam S3) > registers after duplicates, in the stage array the runner walks 6ms
+ ✓ src/__tests__/meterai.test.ts > the meterai-vs-signature stage sits in the §B5 order (seam S3) > accepts the §B7.1 list: Rina 2 sig / 1 met, Budi 1 sig / 0 met 1ms
+ ✓ src/__tests__/meterai.test.ts > the meterai-vs-signature stage sits in the §B5 order (seam S3) > refuses §B7.4 — Rina 2 sig / 3 met — and names that row only 0ms
+ ✓ src/__tests__/meterai.test.ts > the meterai-vs-signature stage sits in the §B5 order (seam S3) > reports the first offending row in index order 0ms
+ ✓ src/__tests__/meterai.test.ts > the meterai-vs-signature stage sits in the §B5 order (seam S3) > runs AFTER duplicate emails: a duplicated pair reports the duplicate 0ms
+ ✓ src/__tests__/meterai.test.ts > the meterai-vs-signature stage sits in the §B5 order (seam S3) > runs AFTER per-recipient: an invalid count reports the count 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > converts a 2-decimal string to integer minor units 2ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > keeps precision far beyond Number.MAX_SAFE_INTEGER 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000" with a RangeError 2ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000.0" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000.000" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "-1.00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "+1.00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "abc" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects " 5000.00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000.00 " with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5,000.00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5e3.00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects ".00" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000." with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects "5000.0a" with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > parseDecimalString > rejects non-string input with a RangeError 0ms
+ ✓ src/__tests__/money.test.ts > formatDecimalString > always renders exactly two fraction digits 0ms
+ ✓ src/__tests__/money.test.ts > formatDecimalString > rejects anything that is not a bigint, so a float can never be formatted 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 0.00 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 0.05 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 1.00 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 5000.00 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 10000.10 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 15000.00 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > round trip > 45000.30 survives parse -> format unchanged 0ms
+ ✓ src/__tests__/money.test.ts > multiplyMinor > multiplies by an integer count exactly 0ms
+ ✓ src/__tests__/money.test.ts > multiplyMinor > refuses a non-integer or negative multiplier 0ms
+ ✓ src/__tests__/money.test.ts > sumMinor > sums an empty list to zero 0ms
+ ✓ src/__tests__/money.test.ts > sumMinor > adds fractional amounts with no float drift 0ms
+ ✓ src/__tests__/money.test.ts > sumMinor > sums a per-recipient breakdown the way charge preview does 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > accepts only integers 1..20 1ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects 0 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects -1 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects 2.5 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects "abc" 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects "" 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects null 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects undefined 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects 21 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects a numeric string, because coercion is the frontend’s job 0ms
+ ✓ src/__tests__/recipient.test.ts > isValidSignatureCount — backend, strict, never coerces > rejects NaN, Infinity and non-scalars 0ms
+ ✓ src/__tests__/recipient.test.ts > clampSignatureCount — frontend, coercing, never NaN/undefined (PRD §8.3) > clamps out-of-range integers into 1..20 instead of discarding them 0ms
+ ✓ src/__tests__/recipient.test.ts > clampSignatureCount — frontend, coercing, never NaN/undefined (PRD §8.3) > keeps the previous value for anything that is not an integer 0ms
+ ✓ src/__tests__/recipient.test.ts > clampSignatureCount — frontend, coercing, never NaN/undefined (PRD §8.3) > accepts a well-formed numeric string, which is what a number input emits 0ms
+ ✓ src/__tests__/recipient.test.ts > clampSignatureCount — frontend, coercing, never NaN/undefined (PRD §8.3) > never returns NaN or undefined for any hostile input 0ms
+ ✓ src/__tests__/recipient.test.ts > clampSignatureCount — frontend, coercing, never NaN/undefined (PRD §8.3) > repairs a corrupted previous value rather than propagating it 0ms
+ ✓ src/__tests__/recipient.test.ts > normalizeEmail (PRD §8.4) > trims and lowercases 0ms
+ ✓ src/__tests__/recipient.test.ts > normalizeEmail (PRD §8.4) > never returns undefined for non-string input 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > passes a well-formed recipient 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > rejects an empty or whitespace-only name (PRD §11.2) 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > rejects a malformed email (PRD §11.2) 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > rejects an out-of-range signature_count with its own code (PRD §11.2) 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > reports signature_count first when several fields are wrong 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipient — order is signature_count, then name, then email (LD-24) > survives a missing or non-object recipient 0ms
+ ✓ src/__tests__/recipient.test.ts > findDuplicateEmailGroups (PRD §8.4, §10) > groups a trimmed, case-variant pair and reports both indexes 0ms
+ ✓ src/__tests__/recipient.test.ts > findDuplicateEmailGroups (PRD §8.4, §10) > returns no groups when every email is distinct 0ms
+ ✓ src/__tests__/recipient.test.ts > findDuplicateEmailGroups (PRD §8.4, §10) > reports every member of a group larger than two 0ms
+ ✓ src/__tests__/recipient.test.ts > findDuplicateEmailGroups (PRD §8.4, §10) > reports multiple independent groups in first-occurrence order 0ms
+ ✓ src/__tests__/recipient.test.ts > findDuplicateEmailGroups (PRD §8.4, §10) > ignores empty emails, which are already a per-recipient failure 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > registers the parameter-free stages, in order 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > accepts a valid list 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > rejects an empty list and an over-long list (PRD §6) 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > rejects a payload that is not an array at all 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > short-circuits on the first failing stage: count before per-recipient 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > short-circuits on the first failing stage: per-recipient before duplicates 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > reports the first offending recipient in index order 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > reaches the duplicate stage only when every recipient is individually valid 0ms
+ ✓ src/__tests__/recipient.test.ts > validateRecipientList — ordered stage pipeline (seam S3, LD-24) > returns a ValidationFailure shape the error mapper can render 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — path components > reduces a traversal path to a bare basename (PRD §10) 1ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — path components > strips Windows separators too 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — path components > keeps a name that is already a bare basename 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — path components > trims surrounding whitespace and drops control characters 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — path components > rejects anything that cannot be reduced to a basename 1ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — XSS payload is preserved, not laundered > leaves the script-looking basename byte-for-byte intact (PRD §10) 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — XSS payload is preserved, not laundered > still strips the path from a payload that also traverses 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — XSS payload is preserved, not laundered > treats a slash inside a payload as the path separator it is 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — 200-character cap (PRD §6, LD-25) > leaves a 200-character name untouched 1ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — 200-character cap (PRD §6, LD-25) > truncates a 250-character name to exactly 200, extension intact 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — 200-character cap (PRD §6, LD-25) > truncates an extensionless name to 200 characters 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — 200-character cap (PRD §6, LD-25) > rejects a name whose extension alone fills the budget 0ms
+ ✓ src/__tests__/file.test.ts > sanitizeFilename — 200-character cap (PRD §6, LD-25) > truncation happens after path stripping, not before 0ms
+ ✓ src/__tests__/file.test.ts > extensionOf > returns the lowercased extension without the dot 0ms
+ ✓ src/__tests__/file.test.ts > extensionOf > takes the LAST extension, which is what makes .pdf.exe catchable 0ms
+ ✓ src/__tests__/file.test.ts > extensionOf > returns an empty string when there is no extension 0ms
+ ✓ src/__tests__/file.test.ts > isAllowedExtension (PRD §6) > accepts all six allowed extensions in any case 0ms
+ ✓ src/__tests__/file.test.ts > isAllowedExtension (PRD §6) > rejects everything else 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > accepts an allowed document and returns the sanitized name 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > rejects .exe and the double-extension .pdf.exe (PRD §10) 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > judges the extension from the sanitized name, never from a directory (PRD §7.9) 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > rejects an unusable filename before it looks at anything else 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > treats a zero-byte payload as no document at all 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > enforces the caller-supplied size limit and names it in the message 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > accepts a file exactly on the limit 0ms
+ ✓ src/__tests__/file.test.ts > validateFileMeta > reports a different limit when a different limit is passed in 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > derives per-row charges, total signatures and the total charge 2ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > totals an empty list to zero rather than throwing 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > is exact at the maximum a document can reach 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > stays exact with a fractional unit price, where a float would drift 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > reads the price from the record it is given, never from a constant 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges (PRD §8.6, §10 Rina/Budi row) > contributes nothing for a row whose count is not a valid integer 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges — two priced lines (§A3.6, §A3.7, §B7.1, §B7.2) > reproduces §B7.1 exactly: 15000.00 + 10000.10 = 25000.10 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges — two priced lines (§A3.6, §A3.7, §B7.1, §B7.2) > gives each row its COMBINED cost (§A3.6) 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges — two priced lines (§A3.6, §A3.7, §B7.1, §B7.2) > reproduces §B7.2 exactly: 15000.00 + 30000.30 = 45000.30 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges — two priced lines (§A3.6, §A3.7, §B7.1, §B7.2) > keeps the two lines summing to the total, cent for cent 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges — two priced lines (§A3.6, §A3.7, §B7.1, §B7.2) > reads the meterai price from the record it is given, never from a constant 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges — two priced lines (§A3.6, §A3.7, §B7.1, §B7.2) > defaults an absent meterai_count to 0 instead of poisoning the total (§B1) 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges — two priced lines (§A3.6, §A3.7, §B7.1, §B7.2) > ignores a meterai_count outside 0..3 rather than billing it 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining (PRD §8.7, §11.1 quota boundary, LD-17) > reports the remainder for the PRD §10 Rina + Budi row 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining (PRD §8.7, §11.1 quota boundary, LD-17) > treats the boundary as inside the quota 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining (PRD §8.7, §11.1 quota boundary, LD-17) > clamps remaining at 0 and reports how far over the list is 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining (PRD §8.7, §11.1 quota boundary, LD-17) > handles an empty list 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining (PRD §8.7, §11.1 quota boundary, LD-17) > reads the quota from the record it is given, never from a constant 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining — the meterai quota, separately (§A3.5, §A3.8, §B7) > reports §B7.1: 5 signatures and 2 meterai left 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining — the meterai quota, separately (§A3.5, §A3.8, §B7) > reports §B7.2: 3 of 3 meterai leaves 0 and is NOT over 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining — the meterai quota, separately (§A3.5, §A3.8, §B7) > reports §B7.3: one over the meterai quota, clamped at 0 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining — the meterai quota, separately (§A3.5, §A3.8, §B7) > keeps the two resources independent in both directions 0ms
+ ✓ src/__tests__/pricing.test.ts > quotaRemaining — the meterai quota, separately (§A3.5, §A3.8, §B7) > reads the meterai allowance from the record it is given 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges + quotaRemaining compose the way charge-preview does > reproduces the PRD §10 over-quota row end to end 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges + quotaRemaining compose the way charge-preview does > reproduces §B7.1 end to end, totals and both remainders 0ms
+ ✓ src/__tests__/pricing.test.ts > computeCharges + quotaRemaining compose the way charge-preview does > reproduces §B7.2 end to end: at the meterai quota, allowed 0ms
+ ✓ src/__tests__/steps.test.ts > order_mode — two modes and nothing else (§A2, §B4) > is exactly parallel and sequential, parallel first 2ms
+ ✓ src/__tests__/steps.test.ts > order_mode — two modes and nothing else (§A2, §B4) > defaults to parallel — the Case-1 behaviour (§A2) 0ms
+ ✓ src/__tests__/steps.test.ts > order_mode — two modes and nothing else (§A2, §B4) > accepts the two modes and refuses everything else 0ms
+ ✓ src/__tests__/steps.test.ts > order_mode — two modes and nothing else (§A2, §B4) > refuses an absent mode as a VALUE, because absence is the caller’s default 0ms
+ ✓ src/__tests__/steps.test.ts > order_mode — two modes and nothing else (§A2, §B4) > reads an absent or malformed mode as parallel, so arithmetic never sees junk 0ms
+ ✓ src/__tests__/steps.test.ts > validateOrderMode — ORDER_MODE_INVALID (§A2, §B5) > passes both modes 0ms
+ ✓ src/__tests__/steps.test.ts > validateOrderMode — ORDER_MODE_INVALID (§A2, §B5) > passes an ABSENT mode: a Case-1 payload still means parallel 0ms
+ ✓ src/__tests__/steps.test.ts > validateOrderMode — ORDER_MODE_INVALID (§A2, §B5) > refuses anything else with ORDER_MODE_INVALID 0ms
+ ✓ src/__tests__/steps.test.ts > validateOrderMode — ORDER_MODE_INVALID (§A2, §B5) > names no recipient — the mode is a request-level field, not a row 0ms
+ ✓ src/__tests__/steps.test.ts > a step is an integer >= 1 (§A2.1) > starts at 1 0ms
+ ✓ src/__tests__/steps.test.ts > a step is an integer >= 1 (§A2.1) > accepts whole numbers from 1 up 0ms
+ ✓ src/__tests__/steps.test.ts > a step is an integer >= 1 (§A2.1) > refuses 0, negatives, fractions, strings and absence 0ms
+ ✓ src/__tests__/steps.test.ts > a step is an integer >= 1 (§A2.1) > reads a malformed or absent step as step 1, so grouping never sees junk 0ms
+ ✓ src/__tests__/steps.test.ts > validateStepSequence — contiguous from 1 (§A2.3, §B7.7) > is vacuous in parallel, however broken the steps are (§A3.4) 0ms
+ ✓ src/__tests__/steps.test.ts > validateStepSequence — contiguous from 1 (§A2.3, §B7.7) > accepts a single step 1 0ms
+ ✓ src/__tests__/steps.test.ts > validateStepSequence — contiguous from 1 (§A2.3, §B7.7) > accepts SHARED steps — parallel signers inside one step (§A2.2) 0ms
+ ✓ src/__tests__/steps.test.ts > validateStepSequence — contiguous from 1 (§A2.3, §B7.7) > accepts steps declared out of row order — contiguity is about the SET 0ms
+ ✓ src/__tests__/steps.test.ts > validateStepSequence — contiguous from 1 (§A2.3, §B7.7) > refuses §B7.7 [1,3] — a gap 0ms
+ ✓ src/__tests__/steps.test.ts > validateStepSequence — contiguous from 1 (§A2.3, §B7.7) > refuses §B7.7 [2,3] — contiguous but not starting at 1 0ms
+ ✓ src/__tests__/steps.test.ts > validateStepSequence — contiguous from 1 (§A2.3, §B7.7) > refuses §B7.7 [0,1] — 0 is not a step at all, and names that row 0ms
+ ✓ src/__tests__/steps.test.ts > validateStepSequence — contiguous from 1 (§A2.3, §B7.7) > refuses a recipient with no step at all in sequential (§A2.1) 0ms
+ ✓ src/__tests__/steps.test.ts > validateStepSequence — contiguous from 1 (§A2.3, §B7.7) > refuses a malformed step without coercing it, and names the FIRST offender 0ms
+ ✓ src/__tests__/steps.test.ts > validateStepSequence — contiguous from 1 (§A2.3, §B7.7) > has nothing to say about an empty list — that is the count stage’s job 0ms
+ ✓ src/__tests__/steps.test.ts > groupByStep — the §B4 `steps` projection > projects §B7.5: Rina step 1, Budi step 2, Citra step 2 0ms
+ ✓ src/__tests__/steps.test.ts > groupByStep — the §B4 `steps` projection > §B7.5 is VALID and has exactly 2 steps, the second holding two emails 1ms
+ ✓ src/__tests__/steps.test.ts > groupByStep — the §B4 `steps` projection > counts parallel as ONE step holding everyone (§A3.4) 0ms
+ ✓ src/__tests__/steps.test.ts > groupByStep — the §B4 `steps` projection > ignores any step a parallel payload carries — parallel has one step by definition 0ms
+ ✓ src/__tests__/steps.test.ts > groupByStep — the §B4 `steps` projection > orders groups by step ascending, whatever order the rows arrive in 0ms
+ ✓ src/__tests__/steps.test.ts > groupByStep — the §B4 `steps` projection > keeps row order inside a shared step (§A2.2) 0ms
+ ✓ src/__tests__/steps.test.ts > groupByStep — the §B4 `steps` projection > normalizes emails the way the rest of the kernel does (trim + lowercase) 0ms
+ ✓ src/__tests__/steps.test.ts > groupByStep — the §B4 `steps` projection > projects an empty list as no steps at all 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > collapses [1,2,2,3] to [1,1,2] when step 1’s sole member is deleted (§B7.8) 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > leaves every other field of every remaining recipient intact (§B7.8) 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > keeps row order — renormalizing renumbers, it never reorders 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > produces a list that passes the contiguity rule it exists to satisfy 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > is a no-op on an already-contiguous list, and keeps row identity 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > closes a gap anywhere in the list, not only at the front 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > repairs a malformed step into step 1 rather than propagating it 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > is a NO-OP in parallel, and never introduces a `step` the server would refuse 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > carries local-only row fields through untouched (the FE keeps an id) 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > never mutates the list it is given 0ms
+ ✓ src/__tests__/steps.test.ts > renormalizeSteps — §A2.4, §B7.8 > handles an empty list 0ms
+ ✓ src/__tests__/steps.test.ts > meterai step placement — §A3.3, §A3.4, §B7.6 > allows a carrier in step 1 0ms
+ ✓ src/__tests__/steps.test.ts > meterai step placement — §A3.3, §A3.4, §B7.6 > allows a NON-carrier in any step — the rule is about the stamp, not the step 0ms
+ ✓ src/__tests__/steps.test.ts > meterai step placement — §A3.3, §A3.4, §B7.6 > refuses §B7.6 — Citra carries 1 meterai in step 2 0ms
+ ✓ src/__tests__/steps.test.ts > meterai step placement — §A3.3, §A3.4, §B7.6 > names the offending recipient, not the whole form (§A3.3) 0ms
+ ✓ src/__tests__/steps.test.ts > meterai step placement — §A3.3, §A3.4, §B7.6 > is VACUOUS in parallel — parallel counts as a single step (§A3.4) 0ms
+ ✓ src/__tests__/steps.test.ts > meterai step placement — §A3.3, §A3.4, §B7.6 > reports the first offending row in index order 0ms
+ ✓ src/__tests__/steps.test.ts > meterai step placement — §A3.3, §A3.4, §B7.6 > treats a 0 or absent meterai_count as carrying nothing (§B1 default) 0ms
+ ✓ src/__tests__/steps.test.ts > the §B5 validation order stays data, not an if-chain (seam S3) > registers the P2 stages in exactly the brief’s positions 0ms
+ ✓ src/__tests__/steps.test.ts > the §B5 validation order stays data, not an if-chain (seam S3) > registers the P2 stages at those positions in the full eleven-stage order 0ms
+ ✓ src/__tests__/steps.test.ts > the §B5 validation order stays data, not an if-chain (seam S3) > registers the same stages in parallel — the ORDER does not vary by mode 0ms
+ ✓ src/__tests__/steps.test.ts > the §B5 validation order stays data, not an if-chain (seam S3) > defaults to parallel when no mode is given, so a Case-1 caller is unchanged 0ms
+ ✓ src/__tests__/steps.test.ts > the §B5 validation order stays data, not an if-chain (seam S3) > exposes each new stage on its own, named 0ms
+ ✓ src/__tests__/steps.test.ts > §B5 order, asserted by collision — the earlier rule must win > reports order_mode before any recipient rule 0ms
+ ✓ src/__tests__/steps.test.ts > §B5 order, asserted by collision — the earlier rule must win > reports a per-recipient failure before step structure 0ms
+ ✓ src/__tests__/steps.test.ts > §B5 order, asserted by collision — the earlier rule must win > reports a duplicate email before step structure (§B5) 0ms
+ ✓ src/__tests__/steps.test.ts > §B5 order, asserted by collision — the earlier rule must win > reports step structure before meterai-vs-signature (§B5) 0ms
+ ✓ src/__tests__/steps.test.ts > §B5 order, asserted by collision — the earlier rule must win > reports meterai-vs-signature before meterai step placement (§B5) 0ms
+ ✓ src/__tests__/steps.test.ts > §B5 order, asserted by collision — the earlier rule must win > reports meterai step placement before either quota (§B5) 0ms
+ ✓ src/__tests__/steps.test.ts > §B5 order, asserted by collision — the earlier rule must win > accepts §B7.5 end to end through the composed pipeline 0ms
+ ✓ src/__tests__/steps.test.ts > §B5 order, asserted by collision — the earlier rule must win > refuses §B7.6 end to end through the composed pipeline 0ms
+ ✓ src/__tests__/steps.test.ts > §B5 order, asserted by collision — the earlier rule must win > leaves a parallel list exactly as P1 judged it (§A3.4, §B7.21) 0ms
+ ✓ src/__tests__/steps.test.ts > the new codes join the shared vocabulary (§B5) > lists all three P2 codes at runtime 1ms
+ ✓ src/__tests__/fields.test.ts > §B2 geometry is derived from the mockup dimensions, not hand-copied > derives the content area from the page size and its padding 1ms
+ ✓ src/__tests__/fields.test.ts > §B2 geometry is derived from the mockup dimensions, not hand-copied > declares the two field sizes §B2 gives 0ms
+ ✓ src/__tests__/fields.test.ts > §B2 geometry is derived from the mockup dimensions, not hand-copied > derives every bound as content area minus field size, for every kind 0ms
+ ✓ src/__tests__/fields.test.ts > §B2 geometry is derived from the mockup dimensions, not hand-copied > lands on exactly the ranges §B2 states 0ms
+ ✓ src/__tests__/fields.test.ts > §B2 geometry is derived from the mockup dimensions, not hand-copied > pins page 1 as the only page (§B3, §A4.7 — page 1 only) 0ms
+ ✓ src/__tests__/fields.test.ts > the UI clamps — clampFieldPosition (FRONTEND) > pulls §B7.15 back to the edge: a signature at x = 500 becomes 420 0ms
+ ✓ src/__tests__/fields.test.ts > the UI clamps — clampFieldPosition (FRONTEND) > pulls §B7.16 back to the edge: a meterai at y = 600 becomes 476 0ms
+ ✓ src/__tests__/fields.test.ts > the UI clamps — clampFieldPosition (FRONTEND) > clamps below zero up to zero on both axes 0ms
+ ✓ src/__tests__/fields.test.ts > the UI clamps — clampFieldPosition (FRONTEND) > leaves an in-range position exactly where it was 0ms
+ ✓ src/__tests__/fields.test.ts > the UI clamps — clampFieldPosition (FRONTEND) > keeps the exact edge as-is, on every bound of every kind 0ms
+ ✓ src/__tests__/fields.test.ts > the UI clamps — clampFieldPosition (FRONTEND) > always returns whole numbers, so §B3 holds for whatever a pointer produced 0ms
+ ✓ src/__tests__/fields.test.ts > the UI clamps — clampFieldPosition (FRONTEND) > never returns NaN or undefined, however corrupt the input (PRD §8.3 habit) 0ms
+ ✓ src/__tests__/fields.test.ts > the API rejects — the backend path never repairs a position (§B2) > §B7.15: x = 500 sent straight to the API is FIELD_OUT_OF_BOUNDS, not 420 0ms
+ ✓ src/__tests__/fields.test.ts > the API rejects — the backend path never repairs a position (§B2) > §B7.16: y = 600 sent straight to the API is FIELD_OUT_OF_BOUNDS, not 476 0ms
+ ✓ src/__tests__/fields.test.ts > the API rejects — the backend path never repairs a position (§B2) > rejects through the whole pipeline rather than accepting a clamped field 2ms
+ ✓ src/__tests__/fields.test.ts > the API rejects — the backend path never repairs a position (§B2) > the clamp of an out-of-range position is the position the API refuses 0ms
+ ✓ src/__tests__/fields.test.ts > the API rejects — the backend path never repairs a position (§B2) > accepts the exact edge and refuses one past it, on every bound (§B7.15/16) 0ms
+ ✓ src/__tests__/fields.test.ts > the API rejects — the backend path never repairs a position (§B2) > pins the four boundary pairs §B2 names, at the edge and one past it 0ms
+ ✓ src/__tests__/fields.test.ts > the API rejects — the backend path never repairs a position (§B2) > is the geometry of the KIND, not one shared box: 500 is legal for a meterai 0ms
+ ✓ src/__tests__/fields.test.ts > the API rejects — the backend path never repairs a position (§B2) > refuses a coordinate that is not a whole number, with no coercion (§B3) 0ms
+ ✓ src/__tests__/fields.test.ts > the API rejects — the backend path never repairs a position (§B2) > refuses a field whose kind has no geometry at all 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.17 — page is required and must be 1 > rejects page 2 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.17 — page is required and must be 1 > rejects page 0 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.17 — page is required and must be 1 > rejects an absent, null or non-integer page — required means required 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.17 — page is required and must be 1 > accepts page 1 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.17 — page is required and must be 1 > reports the page before the position, so one field names one cause 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.18 — id must be unique, and usable as an identity > rejects two fields sharing an id 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.18 — id must be unique, and usable as an identity > rejects an id that is not a usable identity at all 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.18 — id must be unique, and usable as an identity > compares ids exactly — unlike emails, they are not trimmed or case-folded 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.18 — id must be unique, and usable as an identity > settles identity before reporting any other fault, so a failure can name a field 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.18 — id must be unique, and usable as an identity > accepts the §B4 example: four distinct ids 0ms
+ ✓ src/__tests__/fields.test.ts > fieldListOf / fieldOwnerOf — the lenient readers > reads an absent or malformed list as empty, never throwing 0ms
+ ✓ src/__tests__/fields.test.ts > fieldListOf / fieldOwnerOf — the lenient readers > normalizes an owner email the one way this kernel compares emails (§B3) 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.12 — a field may not belong to a non-recipient (§A4.10) > rejects a field whose recipient_email is not in the list 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.12 — a field may not belong to a non-recipient (§A4.10) > matches the owner after trimming, case-insensitively (§B3) 1ms
+ ✓ src/__tests__/fields.test.ts > §B7.12 — a field may not belong to a non-recipient (§A4.10) > rejects a field with no owner at all 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.12 — a field may not belong to a non-recipient (§A4.10) > reports the unknown owner before any count mismatch it also causes 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.13 — a recipient deleted while owning fields: ORPHAN AND FLAG (§A4.13) > orphans their fields and flags them — it does NOT cascade-delete 2ms
+ ✓ src/__tests__/fields.test.ts > §B7.13 — a recipient deleted while owning fields: ORPHAN AND FLAG (§A4.13) > leaves the surviving recipient’s own progress intact and satisfied 0ms
+ ✓ src/__tests__/fields.test.ts > §B7.13 — a recipient deleted while owning fields: ORPHAN AND FLAG (§A4.13) > makes the document invalid with FIELD_UNKNOWN_RECIPIENT, so the user is told 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > accepts the §B4 example: every count materialized 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > §B7.10 — 1 of 2 signature fields placed is FIELD_COUNT_MISMATCH 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > §B7.10 — the UI can show `Signature 1/2` before it ever submits 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > §B7.11 — 3 of 2 signature fields placed is FIELD_COUNT_MISMATCH too 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > §B7.11 — the UI can show WHICH fields are the excess 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > counts the two kinds separately — a meterai field is not a signature field 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > reports the eMeterai shortfall in words that name eMeterai, never signatures 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > reports the FIRST offending recipient, in index order 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > names an excess field so the UI can point at the box to remove 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > an empty `fields: []` with counts to materialize is a mismatch, not a pass 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > a non-array `fields` is read as empty and reconciled, never accepted 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.9 — placed fields must equal the counts, exactly > reads a mid-edit count the same lenient way pricing does 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.13 / §B7.14 — lowering a count FLAGS the excess, it never drops it > flags the excess field and leaves the list exactly as the user left it 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.13 / §B7.14 — lowering a count FLAGS the excess, it never drops it > makes the document invalid until the user removes it — never silently valid 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.13 / §B7.14 — lowering a count FLAGS the excess, it never drops it > becomes valid the moment the flagged field is removed 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.13 / §B7.14 — lowering a count FLAGS the excess, it never drops it > flags the LATER fields when several are excess, keeping the earliest 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.11 — a meterai field may only belong to a §A3.3 recipient > tells the frontend who may be given one, so the palette can disable itself 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.11 — a meterai field may only belong to a §A3.3 recipient > refuses a meterai field owned by a step-2 recipient 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.11 — a meterai field may only belong to a §A3.3 recipient > is vacuous in parallel (§A3.4) 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.11 — a meterai field may only belong to a §A3.3 recipient > allows a meterai field in step 1 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.11 — a meterai field may only belong to a §A3.3 recipient > is shadowed in the pipeline by §A3.3, which judges the COUNT first 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.11 — a meterai field may only belong to a §A3.3 recipient > is enforced by the reconciliation stage, before the count mismatch it implies 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.12 — mismatched fields make the document invalid, they never change the bill > bills the §B7.1 figures from the counts alone 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.12 — mismatched fields make the document invalid, they never change the bill > is invalid-but-identically-priced when a field is missing 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.12 — mismatched fields make the document invalid, they never change the bill > is invalid-but-identically-priced when a field is excess 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.12 — mismatched fields make the document invalid, they never change the bill > reports `field_count` as what was SENT, not as what was required 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.6 — the per-recipient reconciliation report > gives one row per recipient, in index order, with both counts on it 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.6 — the per-recipient reconciliation report > totals both sides of the invariant for the whole document 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.6 — the per-recipient reconciliation report > is unsatisfied while anything is short, excess or orphaned 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.6 — the per-recipient reconciliation report > survives an empty document and an empty recipient list 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.6 — the per-recipient reconciliation report > skips a blank-emailed recipient when deciding who owns what 0ms
+ ✓ src/__tests__/fields.test.ts > §A4.6 — the per-recipient reconciliation report > counts no kind for a field whose kind is not one of the two 0ms
+ ✓ src/__tests__/fields.test.ts > §B5 — the field stages and the validation order > registers all ELEVEN stages in exactly the brief’s order 0ms
+ ✓ src/__tests__/fields.test.ts > §B5 — the field stages and the validation order > registers the same eleven whether or not fields were sent 0ms
+ ✓ src/__tests__/fields.test.ts > §B5 — the field stages and the validation order > exposes the two field stages on their own, shape before reconciliation 0ms
+ ✓ src/__tests__/fields.test.ts > §B5 — the field stages and the validation order > runs field shape & bounds BEFORE field-vs-count reconciliation (§B5) 0ms
+ ✓ src/__tests__/fields.test.ts > §B5 — the field stages and the validation order > runs the field stages AFTER meterai step placement (§B5) 0ms
+ ✓ src/__tests__/fields.test.ts > §B5 — the field stages and the validation order > runs the field stages BEFORE either quota (§B5, delta §5.2) 0ms
+ ✓ src/__tests__/fields.test.ts > §B5 — the field stages and the validation order > runs every recipient rule before any field rule (§B5) 0ms
+ ✓ src/__tests__/fields.test.ts > §B5 — the field stages and the validation order > is VACUOUS when `fields` is absent — a P1/P2 payload still validates 0ms
+ ✓ src/__tests__/fields.test.ts > §B5 — the field stages and the validation order > a field stage is usable on its own 0ms
+ ✓ src/__tests__/fields.test.ts > the five P3 codes are in the shared vocabulary > exports every code §B5 adds for P3 0ms
+ ✓ src/__tests__/fields.test.ts > the five P3 codes are in the shared vocabulary > does not export a P4 code — no rule stands behind one yet 0ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > returns the fixture page count for each listed filename 1ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > matches case-insensitively 0ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > returns 1 for any unlisted name 0ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > keys on the sanitized basename only — a path never matches a fixture 0ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > never returns NaN or undefined for hostile input 0ms
+ ✓ src/__tests__/page-count.test.ts > pageCountFor (PRD §6) > takes exactly one string argument, so file content cannot reach it 0ms
+ ✓ src/__tests__/quota.test.ts > the §B5 validation order is data, not an if-chain (seam S3) > registers the stages in exactly the brief’s order 1ms
+ ✓ src/__tests__/quota.test.ts > the §B5 validation order is data, not an if-chain (seam S3) > keeps the P1 stages in their P1 relative order 0ms
+ ✓ src/__tests__/quota.test.ts > the §B5 validation order is data, not an if-chain (seam S3) > keeps the P1+P2 stages in their pre-P3 relative order 0ms
+ ✓ src/__tests__/quota.test.ts > the §B5 validation order is data, not an if-chain (seam S3) > exposes the two quota stages separately, signature first 0ms
+ ✓ src/__tests__/quota.test.ts > signature quota — Case-1 behaviour, unchanged (§B7.21 regression) > accepts the §B7.1 list: 3 of 8 signatures 0ms
+ ✓ src/__tests__/quota.test.ts > signature quota — Case-1 behaviour, unchanged (§B7.21 regression) > accepts exactly 8 of 8 — the boundary is inside the quota 0ms
+ ✓ src/__tests__/quota.test.ts > signature quota — Case-1 behaviour, unchanged (§B7.21 regression) > refuses 9 of 8 with the Case-1 message, word for word 0ms
+ ✓ src/__tests__/quota.test.ts > signature quota — Case-1 behaviour, unchanged (§B7.21 regression) > reads the allowance from the record it is given, never from a constant 0ms
+ ✓ src/__tests__/quota.test.ts > meterai quota — independent of the signature quota (§A3.5) > accepts the §B7.1 list: 1 of 3 meterai 0ms
+ ✓ src/__tests__/quota.test.ts > meterai quota — independent of the signature quota (§A3.5) > accepts §B7.2 — 3 of 3 meterai, exactly at the quota, is ALLOWED 0ms
+ ✓ src/__tests__/quota.test.ts > meterai quota — independent of the signature quota (§A3.5) > refuses §B7.3 — one more meterai, 4 of 3 0ms
+ ✓ src/__tests__/quota.test.ts > meterai quota — independent of the signature quota (§A3.5) > names eMeterai and never signatures, so the two shortfalls are told apart 0ms
+ ✓ src/__tests__/quota.test.ts > meterai quota — independent of the signature quota (§A3.5) > reads the allowance from the record it is given, never from a constant 0ms
+ ✓ src/__tests__/quota.test.ts > the two quotas fail independently (§A3.5, delta §5.1) > blocks on signatures alone while meterai is comfortably inside 0ms
+ ✓ src/__tests__/quota.test.ts > the two quotas fail independently (§A3.5, delta §5.1) > blocks on meterai alone while signatures are comfortably inside 0ms
+ ✓ src/__tests__/quota.test.ts > the two quotas fail independently (§A3.5, delta §5.1) > reports the signature quota first when BOTH are exceeded (§B5 order) 0ms
+ ✓ src/__tests__/quota.test.ts > the two quotas fail independently (§A3.5, delta §5.1) > reports meterai-vs-signature before either quota (§B5 order) 0ms
+ ✓ src/__tests__/quota.test.ts > the two quotas fail independently (§A3.5, delta §5.1) > reports a duplicate email before either quota (§B7.21 regression) 0ms
+ ✓ src/__tests__/quota.test.ts > a quota stage is usable on its own > runs the meterai stage without the signature stage 0ms
+ ✓ src/__tests__/quota.test.ts > a quota stage is usable on its own > treats an absent meterai_count as 0 when totalling (§B1 default) 0ms
+
+ Test Files  9 passed (9)
+      Tests  332 passed (332)
+   Start at  18:36:14
+   Duration  621ms (transform 543ms, setup 0ms, collect 1.04s, tests 89ms, environment 1ms, prepare 590ms)
+
+exit: 0
