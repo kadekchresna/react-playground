@@ -306,7 +306,9 @@ describe('no derived figure is stored (§A3.9)', () => {
     ]) {
       expect(serialized).not.toContain(forbidden);
     }
-    expect(Object.keys(state).sort()).toEqual(['nextId', 'rows']);
+    // §A2 added `orderMode` — a user choice, not a derived figure. The
+    // forbidden list above, which is what this test is for, is unchanged.
+    expect(Object.keys(state).sort()).toEqual(['nextId', 'orderMode', 'rows']);
   });
 
   it('the same rows always derive the same figures — there is nothing to drift', () => {

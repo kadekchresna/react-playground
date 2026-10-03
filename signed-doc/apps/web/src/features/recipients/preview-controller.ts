@@ -3,12 +3,15 @@
  *
  * ## Seam S5 — the guard keys on a payload hash, not on a request counter
  *
- * `previewKey` reduces the preview input — the envelope id and the exact
- * `{ name, email, signature_count, meterai_count }` tuples, in order — to one
- * canonical string. Case 2 §A3 put `meterai_count` on the wire, so it is part
- * of the hashed input too: changing an eMeterai count invalidates a pending
- * preview exactly as changing a signature count does, and for the same
- * structural reason rather than by a second rule someone has to remember.
+ * `previewKey` reduces the preview input — the envelope id, the order mode and
+ * the exact `{ name, email, signature_count, meterai_count, step }` tuples, in
+ * order — to one canonical string. Case 2 §A3 put `meterai_count` on the wire
+ * and §A2 put the mode and `step` there, so all of them are part of the hashed
+ * input: switching mode, moving a recipient to another step or merging two
+ * steps invalidates a pending preview exactly as changing a signature count
+ * does, and for the same structural reason rather than by a second rule someone
+ * has to remember. `step` is hashed only in `sequential`, because in `parallel`
+ * it is not part of the input at all (§B4).
  * That string is stored beside the last result, and a result is only
  * ever readable through `resultFor(key)`, which compares. Three consequences:
  *
@@ -45,13 +48,21 @@
  * wall-clock wait, hence no flake.
  */
 
-import type { ChargePreviewResponse, RecipientInput, ValidationFailureDetails } from '@signed-doc/shared';
+import {
+  DEFAULT_ORDER_MODE,
+  stepOf,
+  type ChargePreviewResponse,
+  type OrderMode,
+  type RecipientInput,
+  type ValidationFailureDetails,
+} from '@signed-doc/shared';
 
 import { ApiRequestError, UNREACHABLE_MESSAGE, isCancellation } from '../../api/client.js';
 
 export type PreviewTransport = (
   envelopeId: string,
   recipients: readonly RecipientInput[],
+  orderMode: OrderMode,
   signal: AbortSignal,
 ) => Promise<ChargePreviewResponse>;
 
@@ -83,10 +94,24 @@ const IDLE: PreviewSnapshot = { status: 'idle', key: null, result: null, error: 
  * `JSON.stringify` of the objects) makes it independent of property order and
  * of any local-only field a row happens to carry.
  */
-export function previewKey(envelopeId: string, recipients: readonly RecipientInput[]): string {
+export function previewKey(
+  envelopeId: string,
+  recipients: readonly RecipientInput[],
+  orderMode: OrderMode = DEFAULT_ORDER_MODE,
+): string {
   return JSON.stringify([
     envelopeId,
-    recipients.map((r) => [r.name, r.email, r.signature_count, r.meterai_count]),
+    orderMode,
+    recipients.map((r) => [
+      r.name,
+      r.email,
+      r.signature_count,
+      r.meterai_count,
+      // §B4: `step` is input only in `sequential`. Hashing it in `parallel`
+      // would make a stale leftover value look like a change to data that is
+      // not even sent.
+      orderMode === 'sequential' ? stepOf(r) : null,
+    ]),
   ]);
 }
 
@@ -107,7 +132,11 @@ export class PreviewController {
   #inFlight: { key: string; controller: AbortController } | null = null;
 
   /** The last intent, so `retry()` does not need the caller to repeat itself. */
-  #lastIntent: { envelopeId: string; recipients: readonly RecipientInput[] } | null = null;
+  #lastIntent: {
+    envelopeId: string;
+    recipients: readonly RecipientInput[];
+    orderMode: OrderMode;
+  } | null = null;
 
   constructor(transport: PreviewTransport) {
     this.#transport = transport;
@@ -179,16 +208,25 @@ export class PreviewController {
    * Always resolves — failures land in the snapshot, not in the caller's
    * `catch`, because every failure has a rendered home.
    */
-  async request(envelopeId: string, recipients: readonly RecipientInput[]): Promise<void> {
-    const key = previewKey(envelopeId, recipients);
-    const payload = recipients.map((r) => ({
-      name: r.name,
-      email: r.email,
-      signature_count: r.signature_count,
-      meterai_count: r.meterai_count,
-    }));
+  async request(
+    envelopeId: string,
+    recipients: readonly RecipientInput[],
+    orderMode: OrderMode = DEFAULT_ORDER_MODE,
+  ): Promise<void> {
+    const key = previewKey(envelopeId, recipients, orderMode);
+    // The same mode-dependent projection `toWireRecipients` makes, applied here
+    // too so the key, the retry intent and the body all describe one payload.
+    const payload = recipients.map((r) => {
+      const wire: RecipientInput = {
+        name: r.name,
+        email: r.email,
+        signature_count: r.signature_count,
+        meterai_count: r.meterai_count,
+      };
+      return orderMode === 'sequential' ? { ...wire, step: stepOf(r) } : wire;
+    });
 
-    this.#lastIntent = { envelopeId, recipients: payload };
+    this.#lastIntent = { envelopeId, recipients: payload, orderMode };
 
     // Supersede whatever was in flight, whatever its key.
     this.#inFlight?.controller.abort();
@@ -199,7 +237,7 @@ export class PreviewController {
     this.#emit({ status: 'loading', key, result: null, error: null });
 
     try {
-      const result = await this.#transport(envelopeId, payload, controller.signal);
+      const result = await this.#transport(envelopeId, payload, orderMode, controller.signal);
       // The guard. `run` is the current request only while nothing has
       // superseded or abandoned it, so an out-of-order arrival for older data
       // is dropped right here — regardless of what the transport chose to do
@@ -219,7 +257,7 @@ export class PreviewController {
   async retry(): Promise<void> {
     const intent = this.#lastIntent;
     if (!intent) return;
-    await this.request(intent.envelopeId, intent.recipients);
+    await this.request(intent.envelopeId, intent.recipients, intent.orderMode);
   }
 
   /** Abort anything in flight and forget the result. */

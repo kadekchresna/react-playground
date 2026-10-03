@@ -425,6 +425,9 @@ describe('Step 2 eMeterai column (§A3.6–§A3.9)', () => {
   it('an eMeterai change invalidates a server-confirmed total (§8.10, staleness guard)', async () => {
     const calls = await reachStepTwo(() =>
       json(200, {
+        // §B4 — a `200` always carries both, in either mode.
+        order_mode: 'parallel',
+        steps: [{ step: 1, recipient_emails: ['rina.halim@example.test', 'budi.santoso@example.test'] }],
         recipient_count: 2,
         total_signatures: 3,
         total_meterai: 0,
@@ -531,6 +534,9 @@ describe('Step 2 Continue — the server is the authority (PRD §8.9, LD-13)', (
   it('sends only recipients, and swaps the estimate for the server\'s figures', async () => {
     const calls = await reachStepTwo(() =>
       json(200, {
+        // §B4 — a `200` always carries both, in either mode.
+        order_mode: 'parallel',
+        steps: [{ step: 1, recipient_emails: ['rina.halim@example.test', 'budi.santoso@example.test'] }],
         recipient_count: 2,
         total_signatures: 3,
         total_meterai: 0,
@@ -546,7 +552,10 @@ describe('Step 2 Continue — the server is the authority (PRD §8.9, LD-13)', (
     await screen.findByText('Server-confirmed');
 
     const body = calls.at(-1)?.body as Record<string, unknown>;
-    expect(Object.keys(body)).toEqual(['recipients']);
+    // §B4 added `order_mode`; the surface is still closed, and in `parallel`
+    // there is still no `step` on any recipient (§B7 row 9).
+    expect(Object.keys(body)).toEqual(['order_mode', 'recipients']);
+    expect(body.order_mode).toBe('parallel');
     expect(Object.keys((body.recipients as Record<string, unknown>[])[0] ?? {}).sort()).toEqual([
       'email',
       'meterai_count',
@@ -564,6 +573,9 @@ describe('Step 2 Continue — the server is the authority (PRD §8.9, LD-13)', (
   it('drops the server-confirmed label as soon as the data changes (§8.10)', async () => {
     await reachStepTwo(() =>
       json(200, {
+        // §B4 — a `200` always carries both, in either mode.
+        order_mode: 'parallel',
+        steps: [{ step: 1, recipient_emails: ['rina.halim@example.test', 'budi.santoso@example.test'] }],
         recipient_count: 2,
         total_signatures: 3,
         total_meterai: 0,
@@ -598,6 +610,10 @@ describe('Step 2 Continue — the server is the authority (PRD §8.9, LD-13)', (
             },
           })
         : json(200, {
+            order_mode: 'parallel',
+            steps: [
+              { step: 1, recipient_emails: ['rina.halim@example.test', 'budi.santoso@example.test'] },
+            ],
             recipient_count: 2,
             total_signatures: 3,
             total_meterai: 0,

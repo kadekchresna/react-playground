@@ -25,17 +25,35 @@
  * METERAI_EXCEEDS_SIGNATURE` — so a stepper that silently capped itself would
  * make that state unreachable and the rule invisible.
  *
+ * **Case 2 §A2 adds the mode, and the mode adds `step`.** `orderMode` is real
+ * state (the user picks it), `step` is real state (the user arranges it), and
+ * everything derived from them — contiguity, renormalization after a delete,
+ * the ordered set of steps — is the kernel's. `renormalizeSteps` is called
+ * EAGERLY, on every structural change, so the list on screen is never in a
+ * shape the server would answer `STEP_SEQUENCE_INVALID` to.
+ *
+ * **`step` exists only in `sequential`.** Switching to `parallel` deletes the
+ * key from every row rather than parking a value for later. §B4 makes a `step`
+ * sent in parallel a hard `422 UNKNOWN_FIELD`, so the safest place for that
+ * invariant is the state itself: a parallel row has no step to leak. The cost
+ * is that a parallel detour forgets the arrangement, which is a deliberate
+ * trade (see `SET_ORDER_MODE`).
+ *
  * Every rule is imported from `@signed-doc/shared`. There is no local copy of
  * a bound, a clamp or a count check (PRD §8.5).
  */
 
 import {
+  FIRST_STEP,
   MAX_RECIPIENTS,
   MIN_METERAI_COUNT,
   MIN_RECIPIENTS,
   MIN_SIGNATURE_COUNT,
   clampMeteraiCount,
   clampSignatureCount,
+  renormalizeSteps,
+  stepOf,
+  type OrderMode,
   type RecipientInput,
 } from '@signed-doc/shared';
 
@@ -52,7 +70,16 @@ export interface RecipientsState {
   readonly rows: readonly RecipientRow[];
   /** Id source, kept in state so the reducer stays pure and deterministic. */
   readonly nextId: number;
+  /** §A2 — `parallel` (the Case-1 behaviour) or `sequential`. */
+  readonly orderMode: OrderMode;
 }
+
+/**
+ * §A2.6 — which way a reorder goes. Named rather than `-1 | 1` because the two
+ * directions are "towards step 1" and "away from step 1", which is what the
+ * `aria-label` has to say and what a reader of this file needs to know.
+ */
+export type StepDirection = 'earlier' | 'later';
 
 export type RecipientsAction =
   | { type: 'SET_NAME'; index: number; value: string }
@@ -66,7 +93,12 @@ export type RecipientsAction =
   | { type: 'INC_METERAI'; index: number }
   | { type: 'DEC_METERAI'; index: number }
   | { type: 'ADD_ROW' }
-  | { type: 'REMOVE_ROW'; index: number };
+  | { type: 'REMOVE_ROW'; index: number }
+  | { type: 'SET_ORDER_MODE'; mode: OrderMode }
+  /** §A2.6 — give this recipient a step of their own, one position over. */
+  | { type: 'MOVE_STEP'; index: number; direction: StepDirection }
+  /** §A2.6 — put this recipient INTO the neighbouring step (parallel in it). */
+  | { type: 'MERGE_STEP'; index: number; direction: StepDirection };
 
 export function emptyRow(id: string): RecipientRow {
   return {
@@ -110,6 +142,96 @@ function withCount(row: RecipientRow, candidate: unknown): RecipientRow {
 function withMeterai(row: RecipientRow, candidate: unknown): RecipientRow {
   const count = clampMeteraiCount(candidate, row.meterai_count);
   return { ...row, meterai_count: count, meteraiRaw: String(count) };
+}
+
+/**
+ * Drop `step` entirely — not set it to anything. §B4: in `parallel` the key
+ * must not be sent at all, so a parallel row must not have one to send.
+ */
+function withoutStep(row: RecipientRow): RecipientRow {
+  if (row.step === undefined) return row;
+  const { step: _dropped, ...rest } = row;
+  return rest;
+}
+
+/** The ordered distinct step numbers, read with the kernel's own `stepOf`. */
+function distinctSteps(rows: readonly RecipientRow[]): number[] {
+  return [...new Set(rows.map((row) => stepOf(row)))].sort((a, b) => a - b);
+}
+
+/** Where `ADD_ROW` puts a new signer in `sequential`: at the end of the chain. */
+function nextStepAfter(rows: readonly RecipientRow[]): number {
+  const steps = rows.map((row) => stepOf(row));
+  return steps.length === 0 ? FIRST_STEP : Math.max(...steps) + 1;
+}
+
+/**
+ * §A2.6 — move ONE recipient one step earlier or later.
+ *
+ * The arithmetic is a doubling trick, and it exists so that nothing here has to
+ * know what "contiguous" means. Double every step and each existing step sits
+ * on an even number; an odd number then names a position strictly between two
+ * of them. The moved row is placed just before (`2t − 1`) or just after
+ * (`2t + 1`) a target step `t`, and the kernel's `renormalizeSteps` collapses
+ * the result back to contiguous from 1. No local renumbering, ever.
+ *
+ * The target is the row's OWN step while it shares that step with somebody —
+ * the move then splits it out of the group, which is what "earlier" means for a
+ * parallel signer. Once it is alone in its step the target is the NEIGHBOURING
+ * step, because a solo step placed next to where it already was has not moved.
+ * At either end of the chain, alone, there is nowhere to go and the action is a
+ * no-op — which is exactly what `canMoveStep` reports to the button.
+ *
+ * Only `step` changes. The rows keep their array positions, their ids and every
+ * character the user typed (§A2.8); nothing is re-created, re-parsed or
+ * re-ordered.
+ */
+function moveStep(
+  state: RecipientsState,
+  index: number,
+  direction: StepDirection,
+): RecipientsState {
+  const row = state.rows[index];
+  if (!row || state.orderMode !== 'sequential') return state;
+
+  const current = stepOf(row);
+  const shared = state.rows.filter((other) => stepOf(other) === current).length > 1;
+  const steps = distinctSteps(state.rows);
+  const position = steps.indexOf(current);
+  const neighbour = direction === 'earlier' ? steps[position - 1] : steps[position + 1];
+
+  const target = shared ? current : neighbour;
+  if (target === undefined) return state;
+
+  const doubled = state.rows.map((other, i) =>
+    i === index
+      ? { ...other, step: direction === 'earlier' ? target * 2 - 1 : target * 2 + 1 }
+      : { ...other, step: stepOf(other) * 2 },
+  );
+
+  return { ...state, rows: renormalizeSteps(doubled, state.orderMode) };
+}
+
+/**
+ * §A2.6 — merge ONE recipient into the neighbouring step, so they sign in
+ * parallel with everybody already in it (§A2.2). A no-op at either end, and a
+ * no-op in `parallel`, where there is only ever one step.
+ */
+function mergeStep(
+  state: RecipientsState,
+  index: number,
+  direction: StepDirection,
+): RecipientsState {
+  const row = state.rows[index];
+  if (!row || state.orderMode !== 'sequential') return state;
+
+  const steps = distinctSteps(state.rows);
+  const position = steps.indexOf(stepOf(row));
+  const target = direction === 'earlier' ? steps[position - 1] : steps[position + 1];
+  if (target === undefined) return state;
+
+  const merged = state.rows.map((other, i) => (i === index ? { ...other, step: target } : other));
+  return { ...state, rows: renormalizeSteps(merged, state.orderMode) };
 }
 
 export function recipientsReducer(
@@ -175,19 +297,70 @@ export function recipientsReducer(
 
     // LD-16: a no-op at the ceiling. The button is disabled with a visible
     // reason, and the reducer refuses anyway.
-    case 'ADD_ROW':
+    case 'ADD_ROW': {
       if (state.rows.length >= MAX_RECIPIENTS) return state;
-      return {
-        rows: [...state.rows, emptyRow(`r${state.nextId}`)],
-        nextId: state.nextId + 1,
-      };
+      const fresh = emptyRow(`r${state.nextId}`);
+      // §A2.1: in `sequential` every recipient has a step, so a new signer gets
+      // one immediately — at the end of the chain, in a step of their own.
+      // Routed through the kernel so contiguity is never a local claim.
+      const rows =
+        state.orderMode === 'sequential'
+          ? renormalizeSteps(
+              [...state.rows, { ...fresh, step: nextStepAfter(state.rows) }],
+              state.orderMode,
+            )
+          : [...state.rows, fresh];
+      return { ...state, rows, nextId: state.nextId + 1 };
+    }
 
     // LD-12: a no-op at the floor. The UI never walks the user into an empty
     // list; the server still defends the empty case with RECIPIENT_COUNT_INVALID.
+    //
+    // §A2.4 / §B7.8: the survivors go through `renormalizeSteps` EAGERLY, so
+    // deleting the sole member of step 1 out of `[1,2,2,3]` leaves `[1,1,2]` on
+    // screen rather than a `[2,2,3]` the server would refuse. In `parallel` the
+    // kernel's guard makes this a copy and nothing more — no `step` is stamped.
     case 'REMOVE_ROW':
       if (state.rows.length <= MIN_RECIPIENTS) return state;
       if (action.index < 0 || action.index >= state.rows.length) return state;
-      return { ...state, rows: state.rows.filter((_, i) => i !== action.index) };
+      return {
+        ...state,
+        rows: renormalizeSteps(
+          state.rows.filter((_, i) => i !== action.index),
+          state.orderMode,
+        ),
+      };
+
+    /**
+     * §A2 — the mode selector.
+     *
+     * To `sequential`: every row is given a step immediately, one each in list
+     * order. The alternative — putting everyone in step 1 — is also legal, but
+     * it renders identically to `parallel` and makes choosing the mode look
+     * like nothing happened; list order is the only ordering information on
+     * screen, so it is the only honest seed. The user then merges rows back
+     * together, which is one keystroke per row.
+     *
+     * To `parallel`: `step` is DELETED from every row, not parked. §B4 makes a
+     * `step` in a parallel payload a hard `422 UNKNOWN_FIELD`, and a key that
+     * does not exist cannot be sent by a projection that forgets to drop it.
+     * The price is that a detour through `parallel` forgets the arrangement;
+     * that is the trade, taken deliberately.
+     */
+    case 'SET_ORDER_MODE': {
+      if (action.mode === state.orderMode) return state;
+      if (action.mode === 'sequential') {
+        const seeded = state.rows.map((row, i) => ({ ...row, step: i + FIRST_STEP }));
+        return { ...state, orderMode: action.mode, rows: renormalizeSteps(seeded, action.mode) };
+      }
+      return { ...state, orderMode: action.mode, rows: state.rows.map(withoutStep) };
+    }
+
+    case 'MOVE_STEP':
+      return moveStep(state, action.index, action.direction);
+
+    case 'MERGE_STEP':
+      return mergeStep(state, action.index, action.direction);
 
     default:
       return state;
@@ -202,14 +375,50 @@ export function canRemoveRecipient(state: RecipientsState): boolean {
   return state.rows.length > MIN_RECIPIENTS;
 }
 
-/** Project rows onto the wire shape. Local-only fields are dropped here. */
+/**
+ * Whether a reorder control does anything, answered by running the reducer.
+ *
+ * The button's enabled state and the reducer's behaviour cannot disagree,
+ * because they are the same code: a reorder that would change nothing returns
+ * the state object it was given, and that identity IS the answer. With at most
+ * ten rows this costs nothing worth naming.
+ */
+export function canMoveStep(
+  state: RecipientsState,
+  index: number,
+  direction: StepDirection,
+): boolean {
+  return moveStep(state, index, direction) !== state;
+}
+
+export function canMergeStep(
+  state: RecipientsState,
+  index: number,
+  direction: StepDirection,
+): boolean {
+  return mergeStep(state, index, direction) !== state;
+}
+
+/**
+ * Project rows onto the wire shape. Local-only fields are dropped here.
+ *
+ * §B4 decides `step` by MODE, not by whether a row happens to carry one: in
+ * `sequential` every recipient gets one (read through the kernel's `stepOf`, so
+ * a row that somehow lost its step reads as step 1 rather than leaking
+ * `undefined`); in `parallel` the key is absent, because sending it is `422
+ * UNKNOWN_FIELD`.
+ */
 export function toRecipientInputs(state: RecipientsState): RecipientInput[] {
-  return state.rows.map((row) => ({
-    name: row.name,
-    email: row.email,
-    signature_count: row.signature_count,
-    meterai_count: row.meterai_count,
-  }));
+  const sequential = state.orderMode === 'sequential';
+  return state.rows.map((row) => {
+    const wire: RecipientInput = {
+      name: row.name,
+      email: row.email,
+      signature_count: row.signature_count,
+      meterai_count: row.meterai_count,
+    };
+    return sequential ? { ...wire, step: stepOf(row) } : wire;
+  });
 }
 
 /**

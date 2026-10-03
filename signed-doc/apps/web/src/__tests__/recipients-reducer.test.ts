@@ -62,7 +62,10 @@ describe('no derived total is stored (PRD §8.6)', () => {
     for (const forbidden of ['total_charge', 'total_signatures', 'quota_remaining', 'charge']) {
       expect(serialized).not.toContain(forbidden);
     }
-    expect(Object.keys(state).sort()).toEqual(['nextId', 'rows']);
+    // Case 2 §A2 added `orderMode`, which is a USER CHOICE, not a derived
+    // figure — the point of this test is that no total lives here, and the
+    // forbidden list above is unchanged.
+    expect(Object.keys(state).sort()).toEqual(['nextId', 'orderMode', 'rows']);
   });
 
   it('a row carries only its own fields plus local id and raw text', () => {

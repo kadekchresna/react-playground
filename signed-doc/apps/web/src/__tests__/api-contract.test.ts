@@ -80,8 +80,19 @@ describe('charge-preview request body (ADR-003, PRD §9)', () => {
     { name: 'Budi Santoso', email: 'budi.santoso@example.test', signature_count: 1, meterai_count: 0 },
   ];
 
-  it('carries exactly one top-level key', () => {
-    expect(Object.keys(buildChargePreviewBody(rows))).toEqual(['recipients']);
+  /*
+    Case 2 §A2/§B4 added `order_mode`, and the client now sends it in both
+    modes rather than relying on the server's default. The assertion keeps its
+    job — the accepted surface is CLOSED, and nothing else may appear — and
+    gains the one key the brief added. `fields` (P3) is still absent, and the
+    separate parallel/sequential tests below pin what `step` does.
+  */
+  it('carries exactly the two top-level keys §B4 defines', () => {
+    expect(Object.keys(buildChargePreviewBody(rows))).toEqual(['order_mode', 'recipients']);
+  });
+
+  it('defaults to parallel, which is what a Case-1 caller meant', () => {
+    expect(buildChargePreviewBody(rows).order_mode).toBe('parallel');
   });
 
   it('carries exactly four keys per recipient — no price, total or quota', () => {
@@ -104,11 +115,54 @@ describe('charge-preview request body (ADR-003, PRD §9)', () => {
     expect(buildChargePreviewBody(overStamped).recipients[0]?.meterai_count).toBe(3);
   });
 
-  it('sends no P2/P3 key — no order_mode, no step, no fields', () => {
-    const serialized = JSON.stringify(buildChargePreviewBody(rows));
-    for (const forbidden of ['order_mode', 'step', 'fields']) {
+  /*
+    §B4 / §B7 row 9 — the one asymmetry of this endpoint, and the only way to
+    turn a working parallel preview into a hard `422 UNKNOWN_FIELD`. The row
+    below carries a `step`, as a row that has been through `sequential` and back
+    could; in `parallel` it must not reach the wire whatever the row holds.
+  */
+  it('sends no step and no fields key in parallel, whatever the rows carry', () => {
+    const stamped = rows.map((row, i) => ({ ...row, step: i + 1 }));
+    const serialized = JSON.stringify(buildChargePreviewBody(stamped, 'parallel'));
+    for (const forbidden of ['step', 'fields']) {
       expect(serialized).not.toContain(forbidden);
     }
+    expect(JSON.parse(serialized)).toEqual({
+      order_mode: 'parallel',
+      recipients: [
+        { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2, meterai_count: 1 },
+        { name: 'Budi Santoso', email: 'budi.santoso@example.test', signature_count: 1, meterai_count: 0 },
+      ],
+    });
+  });
+
+  it('sends a step for every recipient in sequential, and still no fields key', () => {
+    const body = buildChargePreviewBody(
+      [
+        { ...rows[0]!, step: 1 },
+        { ...rows[1]!, step: 2 },
+      ],
+      'sequential',
+    );
+
+    expect(body.order_mode).toBe('sequential');
+    expect(body.recipients.map((r) => r.step)).toEqual([1, 2]);
+    for (const recipient of body.recipients) {
+      expect(Object.keys(recipient).sort()).toEqual([
+        'email',
+        'meterai_count',
+        'name',
+        'signature_count',
+        'step',
+      ]);
+    }
+    expect(JSON.stringify(body)).not.toContain('fields');
+  });
+
+  it('reads a missing step through the kernel rather than sending undefined', () => {
+    // A row mid-edit can be anything; `stepOf` is total and reads it as step 1.
+    const body = buildChargePreviewBody(rows, 'sequential');
+    expect(body.recipients.map((r) => r.step)).toEqual([1, 1]);
   });
 
   it('drops local-only fields such as the row id and the in-progress count text', () => {
@@ -124,6 +178,7 @@ describe('charge-preview request body (ADR-003, PRD §9)', () => {
       },
     ];
     expect(buildChargePreviewBody(withLocals)).toEqual({
+      order_mode: 'parallel',
       recipients: [
         { name: 'Rina Halim', email: 'rina.halim@example.test', signature_count: 2, meterai_count: 1 },
       ],

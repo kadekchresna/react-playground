@@ -9,10 +9,16 @@
  * data anywhere in source, bundle, logs or documents.
  */
 
+import { DEFAULT_ORDER_MODE } from '@signed-doc/shared';
+
 import type { RecipientsState } from './recipients-reducer.js';
 
 export function createSeedState(): RecipientsState {
   return {
+    // §A2 — `parallel` is the default, and parallel rows carry no `step`
+    // (§B4: sending one is `422 UNKNOWN_FIELD`). The seed therefore looks
+    // exactly as it did in Case 1 until the user picks the other mode.
+    orderMode: DEFAULT_ORDER_MODE,
     rows: [
       {
         id: 'r0',

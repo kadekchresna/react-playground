@@ -19,6 +19,18 @@
  * predicate is the kernel's `meteraiWithinSignatures`, evaluated once by the
  * step and handed down as `meteraiExceedsSignatures`, so the footer's blocker
  * list and this row's red box can never disagree about which rows are at fault.
+ *
+ * **§A3.3 is marked the same way** (`meteraiOutsideFirstStep`), decided one
+ * level up by the kernel's `validateMeteraiStepPlacement`. The brief requires
+ * the reason to point AT that recipient, so it sits under that recipient's own
+ * eMeterai stepper, next to the number that caused it.
+ *
+ * **§A2.6/§A2.7 — the reorder controls.** Four buttons, all native, all
+ * reachable by `Tab` and operable by `Enter`/`Space`: there is no drag-and-drop
+ * anywhere in this file, so there is no keyboard fallback that could rot. Each
+ * carries an `aria-label` naming the recipient it moves, and each carries a
+ * STABLE id derived from the row's local id rather than its position — that id
+ * is what the step restores focus to after the move (`stepControlId`).
  */
 
 import {
@@ -32,7 +44,11 @@ import {
 } from '@signed-doc/shared';
 
 import { formatIdr } from '../../format/money-display.js';
-import { accessibleNameFor, type RecipientRow as Row } from './recipients-reducer.js';
+import {
+  accessibleNameFor,
+  type RecipientRow as Row,
+  type StepDirection,
+} from './recipients-reducer.js';
 
 /** Values known to satisfy every rule, used to isolate one field at a time. */
 const PROBE_NAME = 'probe';
@@ -75,6 +91,50 @@ export function meteraiExceedsMessage(row: Pick<Row, 'meterai_count' | 'signatur
   return `${row.meterai_count} eMeterai for ${signatures} — one duty stamp per signature`;
 }
 
+/**
+ * §A3.3's reason, worded for the one recipient it points at. It names the step
+ * they are actually in and both of the two ways out, because "invalid" on its
+ * own tells a user nothing they can act on.
+ */
+export function meteraiStepMessage(step: number): string {
+  return (
+    `eMeterai in step ${step} — a duty stamp is affixed before the signing chain starts, ` +
+    'so move this recipient to step 1 or set their eMeterai to 0'
+  );
+}
+
+/** §A2.6/§A2.7 — the four reorder controls, and the id focus is restored to. */
+export type StepControlKind = 'move' | 'merge';
+
+export function stepControlId(
+  kind: StepControlKind,
+  direction: StepDirection,
+  rowId: string,
+): string {
+  return `signer-${kind}-${direction}-${rowId}`;
+}
+
+/** The row container's id — the last-resort focus target after a move. */
+export function rowContainerId(rowId: string): string {
+  return `signer-row-${rowId}`;
+}
+
+const STEP_CONTROL_LABEL: Record<StepControlKind, Record<StepDirection, string>> = {
+  move: {
+    earlier: 'Move {who} to an earlier step',
+    later: 'Move {who} to a later step',
+  },
+  merge: {
+    earlier: 'Merge {who} into the previous step',
+    later: 'Merge {who} into the next step',
+  },
+};
+
+const STEP_CONTROL_GLYPH: Record<StepControlKind, Record<StepDirection, string>> = {
+  move: { earlier: '↑', later: '↓' },
+  merge: { earlier: '⇧', later: '⇩' },
+};
+
 export interface RecipientRowProps {
   readonly index: number;
   readonly row: Row;
@@ -85,6 +145,16 @@ export interface RecipientRowProps {
   readonly duplicate: boolean;
   /** §A3.2, decided by the kernel's `meteraiWithinSignatures` one level up. */
   readonly meteraiExceedsSignatures: boolean;
+  /** §A3.3, decided by the kernel's `validateMeteraiStepPlacement` one level up. */
+  readonly meteraiOutsideFirstStep: boolean;
+  /** §A2.5 — `sequential` only: the reorder toolbar is rendered. */
+  readonly sequential: boolean;
+  /** Which of the four reorder controls would actually do something. */
+  readonly canReorder: Readonly<Record<StepControlKind, Readonly<Record<StepDirection, boolean>>>>;
+  /** A server rejection that named THIS recipient (LD-26 reconciliation). */
+  readonly serverIssue: string | null;
+  readonly onMoveStep: (index: number, direction: StepDirection) => void;
+  readonly onMergeStep: (index: number, direction: StepDirection) => void;
   readonly canRemove: boolean;
   readonly onSetName: (index: number, value: string) => void;
   readonly onSetEmail: (index: number, value: string) => void;
@@ -107,6 +177,12 @@ export function RecipientRow({
   meteraiPrice,
   duplicate,
   meteraiExceedsSignatures,
+  meteraiOutsideFirstStep,
+  sequential,
+  canReorder,
+  serverIssue,
+  onMoveStep,
+  onMergeStep,
   canRemove,
   onSetName,
   onSetEmail,
@@ -136,8 +212,42 @@ export function RecipientRow({
     : errors.email;
   const removeHintId = `signer-remove-${index}-hint`;
 
+  /*
+    §A3.2 and §A3.3 both mark the eMeterai box. They are different problems with
+    different fixes, so they get different sentences; when both hold, both are
+    shown rather than one standing in for the other.
+  */
+  const meteraiMessages = [
+    meteraiExceedsSignatures ? meteraiExceedsMessage(row) : null,
+    meteraiOutsideFirstStep ? meteraiStepMessage(row.step ?? 1) : null,
+  ].filter((message): message is string => message !== null);
+
+  const stepControl = (kind: StepControlKind, direction: StepDirection): JSX.Element => {
+    const enabled = canReorder[kind][direction];
+    const handler = kind === 'move' ? onMoveStep : onMergeStep;
+    return (
+      <button
+        type="button"
+        className="icon-btn"
+        id={stepControlId(kind, direction, row.id)}
+        aria-label={STEP_CONTROL_LABEL[kind][direction].replace('{who}', who)}
+        disabled={!enabled}
+        aria-disabled={enabled ? undefined : 'true'}
+        onClick={() => handler(index, direction)}
+      >
+        <span aria-hidden="true">{STEP_CONTROL_GLYPH[kind][direction]}</span>
+      </button>
+    );
+  };
+
   return (
-    <div className="signer-row" role="group" aria-label={`Recipient ${index + 1}`}>
+    <div
+      className="signer-row"
+      role="group"
+      aria-label={`Recipient ${index + 1}`}
+      id={rowContainerId(row.id)}
+      tabIndex={-1}
+    >
       <div>
         <label className="visually-hidden" htmlFor={nameId}>
           {`Full name for ${who}`}
@@ -234,8 +344,12 @@ export function RecipientRow({
           min={MIN_METERAI_COUNT}
           max={MAX_METERAI_COUNT}
           value={row.meteraiRaw}
-          aria-invalid={meteraiExceedsSignatures ? 'true' : undefined}
-          aria-describedby={meteraiExceedsSignatures ? meteraiErrorId : undefined}
+          aria-invalid={meteraiMessages.length > 0 ? 'true' : undefined}
+          aria-describedby={
+            meteraiMessages.length > 0
+              ? meteraiMessages.map((_, i) => (i === 0 ? meteraiErrorId : `${meteraiErrorId}-${i}`)).join(' ')
+              : undefined
+          }
           onChange={(event) => onSetMeteraiRaw(index, event.target.value)}
           onBlur={() => onCommitMeterai(index)}
         />
@@ -254,11 +368,11 @@ export function RecipientRow({
         >
           <span aria-hidden="true">+</span>
         </button>
-        {meteraiExceedsSignatures ? (
-          <span className="field-error" id={meteraiErrorId}>
-            {meteraiExceedsMessage(row)}
+        {meteraiMessages.map((message, i) => (
+          <span className="field-error" id={i === 0 ? meteraiErrorId : `${meteraiErrorId}-${i}`} key={message}>
+            {message}
           </span>
-        ) : null}
+        ))}
       </div>
 
       {/*
@@ -297,6 +411,36 @@ export function RecipientRow({
           </span>
         )}
       </div>
+
+      {/*
+        §A2.6 — the keyboard reordering path, spanning the whole row so the
+        six-column grid above is untouched and `parallel` renders exactly the
+        Case-1 markup. `Move` gives this recipient a step of their own one
+        position over; `Merge` puts them INTO the neighbouring step, which is
+        how §A2.2's shared steps are built.
+      */}
+      {sequential ? (
+        <div className="signer-row__order" role="group" aria-label={`Signing order for ${who}`}>
+          <span className="signer-row__order-label" aria-hidden="true">
+            Order
+          </span>
+          {stepControl('move', 'earlier')}
+          {stepControl('move', 'later')}
+          {stepControl('merge', 'earlier')}
+          {stepControl('merge', 'later')}
+        </div>
+      ) : null}
+
+      {/*
+        LD-26 reconciliation: the server named THIS recipient (§A3.3 sends a
+        `recipient_email`, the step rules send a `recipient_index`). The local
+        marking above is still the primary one; this is the server agreeing.
+      */}
+      {serverIssue ? (
+        <p className="signer-row__note field-error" role="status">
+          {serverIssue}
+        </p>
+      ) : null}
     </div>
   );
 }

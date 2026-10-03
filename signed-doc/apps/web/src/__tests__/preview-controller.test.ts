@@ -45,6 +45,15 @@ const STAMPED = [{ ...RINA, meterai_count: 1 }, BUDI];
 
 function response(totalSignatures: number, totalCharge: string, remaining: number): ChargePreviewResponse {
   return {
+    // §B4 — both are always present in a `200`, in either mode. In `parallel`
+    // `steps` is the single group §A3.4 says a parallel document is.
+    order_mode: 'parallel',
+    steps: [
+      {
+        step: 1,
+        recipient_emails: ['rina.halim@example.test', 'budi.santoso@example.test'],
+      },
+    ],
     recipient_count: 2,
     total_signatures: totalSignatures,
     total_meterai: 0,
@@ -71,9 +80,9 @@ function deferredTransport() {
     reject: (reason: unknown) => void;
   }[] = [];
 
-  const transport: PreviewTransport = (envelopeId, recipients, signal) =>
+  const transport: PreviewTransport = (envelopeId, recipients, orderMode, signal) =>
     new Promise<ChargePreviewResponse>((resolve, reject) => {
-      calls.push({ key: previewKey(envelopeId, recipients), signal, resolve, reject });
+      calls.push({ key: previewKey(envelopeId, recipients, orderMode), signal, resolve, reject });
     });
 
   return { transport, calls };

@@ -20,31 +20,65 @@
  * write-side: the panel asks `resultFor(key)` for the CURRENT payload key. A
  * server answer computed for any other payload is structurally unreachable
  * from this render, not merely cleared by an effect that has to remember to run.
+ * Case 2 §A2 widened the key to the mode and the steps, so picking `sequential`
+ * or moving one recipient invalidates a confirmed total for the same reason a
+ * signature count does.
+ *
+ * **§A2.5 — the grouped view.** In `sequential` the rows are rendered inside a
+ * labelled region per step; in `parallel` they are the flat Case-1 list, byte
+ * for byte. The grouping comes from `stepViews`, which is the kernel's
+ * `groupByStep`/`stepOf` plus the row index.
+ *
+ * **§A2.7 — focus after a move.** A row that changes step changes DOM parent,
+ * so React re-creates its subtree and the browser has nothing left to keep
+ * focus on. The step therefore restores it explicitly: a reorder records the
+ * STABLE id of the control that was pressed (derived from the row's local id,
+ * not its position), and a layout effect — before paint, so nothing flickers —
+ * puts focus back on it. If that control became disabled by the very move it
+ * performed (the row is now at the end of the chain), focus falls to the
+ * opposite-direction control and then to the row itself, so there is no path
+ * where a keyboard user is dropped onto `<body>`.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { Dispatch } from 'react';
 
 import {
   MAX_RECIPIENTS,
   findDuplicateEmailGroups,
+  normalizeEmail,
+  stepOf,
+  validateMeteraiStepPlacement,
   validateRecipient,
+  validateStepSequence,
   type EnvelopeCreatedResponse,
   type Minor,
+  type OrderMode,
 } from '@signed-doc/shared';
 
 import { fetchChargePreview } from '../../api/charge-preview.js';
 import { DisabledControl } from '../../components/DisabledControl.js';
 import { deriveTotals } from './derive.js';
-import { RecipientRow, meteraiExceedsMessage } from './RecipientRow.js';
+import { OrderModeSelector } from './OrderModeSelector.js';
+import {
+  RecipientRow,
+  meteraiExceedsMessage,
+  meteraiStepMessage,
+  rowContainerId,
+  stepControlId,
+} from './RecipientRow.js';
 import { SummaryPanel, overMeteraiQuotaMessage, overQuotaMessage } from './SummaryPanel.js';
 import {
   canAddRecipient,
+  canMergeStep,
+  canMoveStep,
   canRemoveRecipient,
   toRecipientInputs,
   type RecipientsAction,
   type RecipientsState,
+  type StepDirection,
 } from './recipients-reducer.js';
+import { stepGroupLabel, stepViews, type StepMember } from './step-groups.js';
 import { PreviewController, previewKey, type PreviewTransport } from './preview-controller.js';
 
 const CONTINUE_REASON_ID = 'recipients-continue-reason';
@@ -53,8 +87,10 @@ const OVER_QUOTA_ID = 'recipients-over-quota';
 const OVER_METERAI_QUOTA_ID = 'recipients-over-meterai-quota';
 
 /** The real transport. Injectable so the step can be driven without a network. */
-const httpTransport: PreviewTransport = (envelopeId, recipients, signal) =>
-  fetchChargePreview(envelopeId, recipients, { signal });
+const httpTransport: PreviewTransport = (envelopeId, recipients, orderMode, signal) =>
+  fetchChargePreview(envelopeId, recipients, orderMode, { signal });
+
+const OPPOSITE: Record<StepDirection, StepDirection> = { earlier: 'later', later: 'earlier' };
 
 export interface RecipientsStepProps {
   readonly envelope: EnvelopeCreatedResponse;
@@ -80,9 +116,32 @@ export function RecipientsStep({
   const getSnapshot = useCallback(() => controller.getSnapshot(), [controller]);
   useSyncExternalStore(subscribe, getSnapshot);
 
+  // ------------------------------------------------------------ §A2.7 focus
+  /**
+   * The ids focus should land on after the next commit, best first. Set by a
+   * reorder, consumed once by the layout effect below.
+   */
+  const pendingFocus = useRef<readonly string[] | null>(null);
+
+  useLayoutEffect(() => {
+    const candidates = pendingFocus.current;
+    if (candidates === null) return;
+    pendingFocus.current = null;
+
+    for (const id of candidates) {
+      const element = document.getElementById(id);
+      if (!(element instanceof HTMLElement)) continue;
+      // A control the move itself disabled cannot hold focus; try the next.
+      if (element instanceof HTMLButtonElement && element.disabled) continue;
+      element.focus();
+      if (document.activeElement === element) return;
+    }
+  });
+
   // ---------------------------------------------------------------- derived
   const recipients = useMemo(() => toRecipientInputs(state), [state]);
-  const key = previewKey(envelope.envelope_id, recipients);
+  const key = previewKey(envelope.envelope_id, recipients, state.orderMode);
+  const sequential = state.orderMode === 'sequential';
 
   // Seam S5: any change to recipient data changes the key, which both aborts
   // in-flight work and makes the previous server result unreadable below.
@@ -112,6 +171,22 @@ export function RecipientsStep({
   const overBy = balance.signature.overBy;
   const meteraiOverBy = balance.meterai.overBy;
 
+  /*
+    §A3.3 per row. The kernel reports only the FIRST offender for a whole list,
+    which is right for a server rejection and wrong for a screen that has to
+    mark every row at fault — so the same kernel rule is asked once per row, on
+    a one-element list. The verdict is still entirely the kernel's; only the
+    wording is ours (`meteraiStepMessage`), exactly as §A3.2 already works.
+    Vacuous in `parallel`, where the kernel returns `null` outright.
+  */
+  const meteraiStepFailures = recipients.map((recipient) =>
+    validateMeteraiStepPlacement([recipient], state.orderMode),
+  );
+  // §A2.3 — belt and braces. Every structural action renormalizes through the
+  // kernel, so this should never fire; if it ever does, it is a bug in this
+  // package and the user is told rather than handed a `422`.
+  const stepSequenceFailure = validateStepSequence(recipients, state.orderMode);
+
   const blockers: string[] = [];
   rowFailures.forEach((failure, index) => {
     if (failure) blockers.push(`Recipient ${index + 1}: ${failure.message}`);
@@ -120,7 +195,12 @@ export function RecipientsStep({
     if (meteraiExceeds[index]) {
       blockers.push(`Recipient ${index + 1}: ${meteraiExceedsMessage(recipient)}`);
     }
+    // §A3.3 — its own sentence, naming the step, never folded into §A3.2's.
+    if (meteraiStepFailures[index]) {
+      blockers.push(`Recipient ${index + 1}: ${meteraiStepMessage(stepOf(recipient))}`);
+    }
   });
+  if (stepSequenceFailure) blockers.push(stepSequenceFailure.message);
   for (const group of duplicateGroups) {
     blockers.push(
       `Recipients ${group.map((i) => i + 1).join(' and ')} use the same email address`,
@@ -149,16 +229,103 @@ export function RecipientsStep({
   // the primary marking above is local (LD-26).
   const serverFlagged = new Set(previewError?.details?.recipient_indexes ?? []);
 
+  /*
+    The singular locators, which the Case-2 rules use: `recipient_index` for the
+    step rules and `recipient_email` for §A3.3, which names a recipient because
+    an index alone is not enough to word a sentence about one. Kept apart from
+    `serverFlagged` above on purpose — that one feeds the email field's
+    "already used by another recipient" copy, and a step rejection must not
+    borrow it.
+  */
+  const details = previewError?.details;
+  const serverNamed = new Set<number>();
+  if (typeof details?.recipient_index === 'number') serverNamed.add(details.recipient_index);
+  if (typeof details?.recipient_email === 'string') {
+    recipients.forEach((recipient, index) => {
+      if (normalizeEmail(recipient.email) === details.recipient_email) serverNamed.add(index);
+    });
+  }
+
   const onContinue = () => {
-    void controller.request(envelope.envelope_id, recipients);
+    void controller.request(envelope.envelope_id, recipients, state.orderMode);
   };
+
+  // --------------------------------------------------------------- §A2.6/§A2.7
+  const reorder = (
+    kind: 'move' | 'merge',
+    index: number,
+    direction: StepDirection,
+  ): void => {
+    const row = state.rows[index];
+    if (!row) return;
+    pendingFocus.current = [
+      stepControlId(kind, direction, row.id),
+      stepControlId(kind, OPPOSITE[direction], row.id),
+      rowContainerId(row.id),
+    ];
+    dispatch(
+      kind === 'move'
+        ? { type: 'MOVE_STEP', index, direction }
+        : { type: 'MERGE_STEP', index, direction },
+    );
+  };
+
+  const onOrderModeChange = (mode: OrderMode): void => {
+    pendingFocus.current = [`order-mode-${mode}`];
+    dispatch({ type: 'SET_ORDER_MODE', mode });
+  };
+
+  const renderRow = ({ row, index }: StepMember): JSX.Element => (
+    <RecipientRow
+      key={row.id}
+      index={index}
+      row={row}
+      unitPrice={unitPrice}
+      meteraiPrice={meteraiPrice}
+      chargeMinor={breakdown.rows[index]?.chargeMinor ?? (0n as Minor)}
+      duplicate={duplicateIndexes.has(index) || serverFlagged.has(index)}
+      meteraiExceedsSignatures={meteraiExceeds[index] ?? false}
+      meteraiOutsideFirstStep={Boolean(meteraiStepFailures[index])}
+      sequential={sequential}
+      canReorder={{
+        move: {
+          earlier: canMoveStep(state, index, 'earlier'),
+          later: canMoveStep(state, index, 'later'),
+        },
+        merge: {
+          earlier: canMergeStep(state, index, 'earlier'),
+          later: canMergeStep(state, index, 'later'),
+        },
+      }}
+      serverIssue={serverNamed.has(index) ? previewError?.message ?? null : null}
+      onMoveStep={(i, direction) => reorder('move', i, direction)}
+      onMergeStep={(i, direction) => reorder('merge', i, direction)}
+      canRemove={canRemoveRecipient(state)}
+      onSetName={(i, value) => dispatch({ type: 'SET_NAME', index: i, value })}
+      onSetEmail={(i, value) => dispatch({ type: 'SET_EMAIL', index: i, value })}
+      onSetCountRaw={(i, raw) => dispatch({ type: 'SET_COUNT_RAW', index: i, raw })}
+      onCommitCount={(i) => dispatch({ type: 'COMMIT_COUNT', index: i })}
+      onIncrement={(i) => dispatch({ type: 'INC', index: i })}
+      onDecrement={(i) => dispatch({ type: 'DEC', index: i })}
+      onSetMeteraiRaw={(i, raw) => dispatch({ type: 'SET_METERAI_RAW', index: i, raw })}
+      onCommitMeterai={(i) => dispatch({ type: 'COMMIT_METERAI', index: i })}
+      onIncrementMeterai={(i) => dispatch({ type: 'INC_METERAI', index: i })}
+      onDecrementMeterai={(i) => dispatch({ type: 'DEC_METERAI', index: i })}
+      onRemove={(i) => dispatch({ type: 'REMOVE_ROW', index: i })}
+    />
+  );
 
   return (
     <main className="board">
       <h1>Who signs it?</h1>
       <p className="board__sub">
-        Everyone below is invited at the same time. Fields are placed manually in the next step.
+        {sequential
+          ? 'Each step is invited only once everybody in the step before it is done. Fields are placed manually in the next step.'
+          : 'Everyone below is invited at the same time. Fields are placed manually in the next step.'}
       </p>
+
+      {/* §A2 — the mode selector sits ABOVE the list, as the brief places it. */}
+      <OrderModeSelector value={state.orderMode} onChange={onOrderModeChange} />
 
       <div className="signer-row signer-row__head" aria-hidden="true">
         <span>Full name</span>
@@ -169,31 +336,30 @@ export function RecipientsStep({
         <span />
       </div>
 
-      <div className="signers">
-        {state.rows.map((row, index) => (
-          <RecipientRow
-            key={row.id}
-            index={index}
-            row={row}
-            unitPrice={unitPrice}
-            meteraiPrice={meteraiPrice}
-            chargeMinor={breakdown.rows[index]?.chargeMinor ?? (0n as Minor)}
-            duplicate={duplicateIndexes.has(index) || serverFlagged.has(index)}
-            meteraiExceedsSignatures={meteraiExceeds[index] ?? false}
-            canRemove={canRemoveRecipient(state)}
-            onSetName={(i, value) => dispatch({ type: 'SET_NAME', index: i, value })}
-            onSetEmail={(i, value) => dispatch({ type: 'SET_EMAIL', index: i, value })}
-            onSetCountRaw={(i, raw) => dispatch({ type: 'SET_COUNT_RAW', index: i, raw })}
-            onCommitCount={(i) => dispatch({ type: 'COMMIT_COUNT', index: i })}
-            onIncrement={(i) => dispatch({ type: 'INC', index: i })}
-            onDecrement={(i) => dispatch({ type: 'DEC', index: i })}
-            onSetMeteraiRaw={(i, raw) => dispatch({ type: 'SET_METERAI_RAW', index: i, raw })}
-            onCommitMeterai={(i) => dispatch({ type: 'COMMIT_METERAI', index: i })}
-            onIncrementMeterai={(i) => dispatch({ type: 'INC_METERAI', index: i })}
-            onDecrementMeterai={(i) => dispatch({ type: 'DEC_METERAI', index: i })}
-            onRemove={(i) => dispatch({ type: 'REMOVE_ROW', index: i })}
-          />
-        ))}
+      <div className={sequential ? 'signers signers--sequential' : 'signers'}>
+        {sequential
+          ? stepViews(state).map((group) => (
+              /*
+                §A2.5 — one labelled region per step, with the header visible
+                and the shared-step case spelled out rather than implied.
+              */
+              <section
+                className="step-group"
+                key={group.step}
+                aria-label={stepGroupLabel(group.step, group.members.length)}
+              >
+                <h2 className="step-group__head">
+                  <span className="step-group__number">{`Step ${group.step}`}</span>
+                  <span className="step-group__note">
+                    {group.members.length === 1
+                      ? '1 recipient'
+                      : `${group.members.length} recipients — they sign in parallel within this step`}
+                  </span>
+                </h2>
+                {group.members.map(renderRow)}
+              </section>
+            ))
+          : state.rows.map((row, index) => renderRow({ row, index }))}
       </div>
 
       <div className="add-signer">
